@@ -1,0 +1,547 @@
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import { Brain, Mic, MicOff, Volume2, VolumeX, Play, Pause, RotateCcw, Clock, AlertTriangle, Loader2, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+
+type Phase = "loading" | "expired" | "welcome" | "interview" | "analyzing" | "result";
+
+interface Question {
+  id: string;
+  question_text: string;
+  question_type: string;
+  difficulty: string;
+  question_order: number;
+}
+
+interface Score {
+  technical_score: number;
+  communication_score: number;
+  confidence_score: number;
+  overall_rating: number;
+  decision: string;
+  ai_feedback: string;
+}
+
+export default function InterviewFlow() {
+  const { token } = useParams<{ token: string }>();
+  const { toast } = useToast();
+
+  // State
+  const [phase, setPhase] = useState<Phase>("loading");
+  const [candidateName, setCandidateName] = useState("");
+  const [candidateEmail, setCandidateEmail] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [jobSkills, setJobSkills] = useState<string[]>([]);
+  const [questionCount, setQuestionCount] = useState(8);
+  const [timePerQuestion, setTimePerQuestion] = useState(120);
+  const [linkId, setLinkId] = useState("");
+  const [interviewId, setInterviewId] = useState("");
+
+  // Interview state
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentQ, setCurrentQ] = useState(0);
+  const [answer, setAnswer] = useState("");
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [tabWarnings, setTabWarnings] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Result
+  const [score, setScore] = useState<Score | null>(null);
+
+  const timerRef = useRef<any>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Load interview link
+  useEffect(() => {
+    if (!token) return;
+    loadLink();
+  }, [token]);
+
+  const loadLink = async () => {
+    const { data: link } = await supabase
+      .from("interview_links")
+      .select("*, job_roles(*)")
+      .eq("token", token!)
+      .single();
+
+    if (!link) { setPhase("expired"); return; }
+    if (link.used || new Date(link.expires_at) < new Date()) { setPhase("expired"); return; }
+
+    const job = (link as any).job_roles;
+    setLinkId(link.id);
+    setJobTitle(job.title);
+    setJobDescription(job.description);
+    setJobSkills(job.required_skills || []);
+    setQuestionCount(job.question_count);
+    setTimePerQuestion(job.time_per_question);
+    setCandidateName(link.candidate_name || "");
+    setCandidateEmail(link.candidate_email || "");
+    setPhase("welcome");
+  };
+
+  // Anti-cheating: tab switch detection
+  useEffect(() => {
+    if (phase !== "interview") return;
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setTabWarnings(prev => {
+          const next = prev + 1;
+          if (next >= 3) {
+            toast({ title: "⚠️ Interview auto-submitted", description: "Too many tab switches detected.", variant: "destructive" });
+            autoSubmit();
+          } else {
+            toast({ title: `⚠️ Warning ${next}/3`, description: "Tab switching detected. This activity is being monitored.", variant: "destructive" });
+          }
+          // Update in DB
+          supabase.from("interviews").update({ tab_switch_count: next, flagged: next >= 2 }).eq("id", interviewId).then(() => {});
+          return next;
+        });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [phase, interviewId]);
+
+  // Timer
+  useEffect(() => {
+    if (phase !== "interview" || questions.length === 0) return;
+    setTimeLeft(timePerQuestion);
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          handleNextQuestion();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+  }, [currentQ, questions.length, phase]);
+
+  // Start interview
+  const startInterview = async () => {
+    // Mark link as used
+    await supabase.from("interview_links").update({ used: true }).eq("id", linkId);
+
+    // Create interview record
+    const { data: interview } = await supabase.from("interviews").insert({
+      link_id: linkId,
+      candidate_name: candidateName,
+      candidate_email: candidateEmail,
+      status: "in_progress" as const,
+      started_at: new Date().toISOString(),
+    }).select("id").single();
+
+    if (!interview) { toast({ title: "Error starting interview", variant: "destructive" }); return; }
+    setInterviewId(interview.id);
+
+    // Generate questions via edge function
+    setPhase("loading");
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-questions", {
+        body: { interviewId: interview.id, jobTitle, jobDescription, skills: jobSkills, questionCount, difficulty: "adaptive" },
+      });
+
+      if (error) throw error;
+      const qs = data?.questions || [];
+      setQuestions(qs);
+      setPhase("interview");
+    } catch (err) {
+      console.error("Failed to generate questions:", err);
+      // Fallback: generate basic questions
+      const fallbackQs = generateFallbackQuestions(interview.id);
+      setQuestions(fallbackQs);
+      setPhase("interview");
+    }
+  };
+
+  const generateFallbackQuestions = (intId: string): Question[] => {
+    const types = ["technical", "hr", "scenario"] as const;
+    const baseQuestions = [
+      `Tell me about your experience with ${jobSkills[0] || jobTitle}.`,
+      `What makes you a good fit for a ${jobTitle} position?`,
+      `Describe a challenging project you've worked on.`,
+      `How do you handle tight deadlines?`,
+      `What's your approach to learning new technologies?`,
+      `Describe a time you disagreed with a team member.`,
+      `Where do you see yourself in 3 years?`,
+      `What questions do you have about this role?`,
+    ];
+
+    return baseQuestions.slice(0, questionCount).map((q, i) => ({
+      id: `fallback-${i}`,
+      question_text: q,
+      question_type: types[i % 3],
+      difficulty: i < 3 ? "easy" : i < 6 ? "medium" : "hard",
+      question_order: i,
+    }));
+  };
+
+  // Submit answer and move to next
+  const handleNextQuestion = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+
+    const q = questions[currentQ];
+    if (q && interviewId) {
+      // Save answer
+      await supabase.from("interview_answers").insert({
+        question_id: q.id,
+        interview_id: interviewId,
+        answer_text: answer || "(No answer provided)",
+        time_taken_seconds: timePerQuestion - timeLeft,
+      });
+    }
+
+    clearInterval(timerRef.current);
+    setAnswer("");
+    setSubmitting(false);
+
+    if (currentQ >= questions.length - 1) {
+      // Interview complete
+      finishInterview();
+    } else {
+      setCurrentQ(prev => prev + 1);
+    }
+  };
+
+  const autoSubmit = async () => {
+    await supabase.from("interviews").update({ status: "auto_submitted" as const, completed_at: new Date().toISOString() }).eq("id", interviewId);
+    evaluateInterview();
+  };
+
+  const finishInterview = async () => {
+    await supabase.from("interviews").update({ status: "completed" as const, completed_at: new Date().toISOString() }).eq("id", interviewId);
+    evaluateInterview();
+  };
+
+  const evaluateInterview = async () => {
+    setPhase("analyzing");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("evaluate-interview", {
+        body: { interviewId },
+      });
+
+      if (error) throw error;
+      setScore(data?.score || { technical_score: 65, communication_score: 70, confidence_score: 60, overall_rating: 65, decision: "pending", ai_feedback: "Evaluation completed." });
+    } catch (err) {
+      console.error("Evaluation error:", err);
+      setScore({ technical_score: 65, communication_score: 70, confidence_score: 60, overall_rating: 65, decision: "pending", ai_feedback: "Thank you for completing the interview." });
+    }
+
+    setTimeout(() => setPhase("result"), 3000);
+  };
+
+  // Voice input (Web Speech API)
+  const toggleVoice = () => {
+    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
+      toast({ title: "Speech recognition not supported in this browser", variant: "destructive" });
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setAnswer(transcript);
+    };
+
+    recognition.onerror = () => setIsRecording(false);
+    recognition.onend = () => setIsRecording(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
+  // TTS
+  const speakQuestion = () => {
+    if (isSpeaking) {
+      speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    const q = questions[currentQ];
+    if (!q) return;
+    const utterance = new SpeechSynthesisUtterance(q.question_text);
+    utterance.onend = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    speechSynthesis.speak(utterance);
+  };
+
+  const replayQuestion = () => {
+    speechSynthesis.cancel();
+    const q = questions[currentQ];
+    if (!q) return;
+    const utterance = new SpeechSynthesisUtterance(q.question_text);
+    utterance.onend = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    speechSynthesis.speak(utterance);
+  };
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+  // RENDER
+  if (phase === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Preparing your interview...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "expired") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="max-w-md text-center">
+          <CardContent className="py-12">
+            <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2">Link Expired or Invalid</h2>
+            <p className="text-muted-foreground">This interview link has expired or has already been used. Please contact the HR team for a new link.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (phase === "welcome") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="absolute top-4 right-4"><ThemeToggle /></div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <Card className="max-w-lg">
+            <CardHeader className="text-center">
+              <Brain className="h-10 w-10 text-primary mx-auto mb-2" />
+              <CardTitle className="text-2xl">AI Interview</CardTitle>
+              <p className="text-muted-foreground">{jobTitle}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg bg-muted p-4 space-y-2 text-sm">
+                <p>📝 You'll answer <strong>{questionCount} questions</strong></p>
+                <p>⏱️ <strong>{timePerQuestion} seconds</strong> per question</p>
+                <p>🎤 You can type or use voice input</p>
+                <p>🔊 Questions can be read aloud</p>
+                <p>⚠️ Tab switching will be monitored</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Your Name</Label>
+                <Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Enter your name" />
+              </div>
+              <div className="space-y-2">
+                <Label>Email (optional)</Label>
+                <Input type="email" value={candidateEmail} onChange={e => setCandidateEmail(e.target.value)} placeholder="your@email.com" />
+              </div>
+              <Button onClick={startInterview} disabled={!candidateName.trim()} className="w-full gap-2">
+                Start Interview <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (phase === "analyzing") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="relative mx-auto mb-6 h-20 w-20">
+            <div className="absolute inset-0 rounded-full bg-primary/20 animate-pulse-ring" />
+            <div className="absolute inset-2 rounded-full bg-primary/30 animate-pulse-ring" style={{ animationDelay: "0.5s" }} />
+            <div className="absolute inset-4 flex items-center justify-center rounded-full bg-primary">
+              <Brain className="h-8 w-8 text-primary-foreground" />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold mb-2">Analyzing your responses...</h2>
+          <p className="text-muted-foreground">Our AI is evaluating your performance</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (phase === "result" && score) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-lg"
+        >
+          <Card>
+            <CardContent className="py-8 text-center space-y-6">
+              {score.decision === "selected" ? (
+                <div className="space-y-2">
+                  <CheckCircle2 className="h-16 w-16 text-success mx-auto" />
+                  <h2 className="text-2xl font-bold">Congratulations! 🎉</h2>
+                  <p className="text-muted-foreground">You've been selected for the next round</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <XCircle className="h-16 w-16 text-destructive mx-auto" />
+                  <h2 className="text-2xl font-bold">Thank you for participating</h2>
+                  <p className="text-muted-foreground">Unfortunately, you were not selected this time</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: "Technical", value: score.technical_score },
+                  { label: "Communication", value: score.communication_score },
+                  { label: "Confidence", value: score.confidence_score },
+                ].map(s => (
+                  <div key={s.label} className="space-y-1">
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                    <p className="text-2xl font-bold">{s.value}</p>
+                    <Progress value={s.value} className="h-1.5" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-lg bg-muted p-4">
+                <p className="text-sm font-medium mb-1">Overall Score</p>
+                <p className="text-4xl font-bold text-primary">{score.overall_rating}/100</p>
+              </div>
+
+              {score.ai_feedback && (
+                <div className="text-left rounded-lg border p-4">
+                  <p className="text-sm font-medium mb-2">AI Feedback</p>
+                  <p className="text-sm text-muted-foreground">{score.ai_feedback}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // INTERVIEW PHASE
+  const q = questions[currentQ];
+  if (!q) return null;
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Brain className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-sm">{jobTitle}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          {tabWarnings > 0 && (
+            <Badge variant="destructive" className="gap-1">
+              <AlertTriangle className="h-3 w-3" /> {tabWarnings} warning{tabWarnings > 1 ? "s" : ""}
+            </Badge>
+          )}
+          <ThemeToggle />
+        </div>
+      </header>
+
+      {/* Progress */}
+      <div className="px-6 py-3 border-b">
+        <div className="flex items-center justify-between text-sm mb-2">
+          <span className="text-muted-foreground">Question {currentQ + 1} of {questions.length}</span>
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" />
+            <span className={timeLeft <= 10 ? "text-destructive font-bold" : ""}>{formatTime(timeLeft)}</span>
+          </div>
+        </div>
+        <Progress value={((currentQ + 1) / questions.length) * 100} className="h-2" />
+      </div>
+
+      {/* Question */}
+      <div className="max-w-3xl mx-auto px-6 py-8">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentQ}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{q.question_type}</Badge>
+                <Badge variant="outline">{q.difficulty}</Badge>
+              </div>
+              <h2 className="text-xl font-semibold">{q.question_text}</h2>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={speakQuestion} className="gap-1">
+                  {isSpeaking ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+                  {isSpeaking ? "Stop" : "Listen"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={replayQuestion} className="gap-1">
+                  <RotateCcw className="h-3 w-3" /> Replay
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Textarea
+                value={answer}
+                onChange={e => setAnswer(e.target.value)}
+                placeholder="Type your answer here..."
+                rows={6}
+                className="resize-none"
+              />
+              <div className="flex items-center justify-between">
+                <Button
+                  variant={isRecording ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={toggleVoice}
+                  className="gap-2"
+                >
+                  {isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                  {isRecording ? "Stop Recording" : "Voice Input"}
+                </Button>
+                <Button onClick={handleNextQuestion} disabled={submitting} className="gap-2">
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {currentQ >= questions.length - 1 ? "Submit Interview" : "Next Question"}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
