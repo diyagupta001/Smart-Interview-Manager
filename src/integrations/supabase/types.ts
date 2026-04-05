@@ -14,16 +14,337 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      interview_answers: {
+        Row: {
+          answer_text: string
+          created_at: string
+          id: string
+          interview_id: string
+          question_id: string
+          time_taken_seconds: number
+        }
+        Insert: {
+          answer_text?: string
+          created_at?: string
+          id?: string
+          interview_id: string
+          question_id: string
+          time_taken_seconds?: number
+        }
+        Update: {
+          answer_text?: string
+          created_at?: string
+          id?: string
+          interview_id?: string
+          question_id?: string
+          time_taken_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_answers_interview_id_fkey"
+            columns: ["interview_id"]
+            isOneToOne: false
+            referencedRelation: "interviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interview_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "interview_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_links: {
+        Row: {
+          candidate_email: string | null
+          candidate_name: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          job_role_id: string
+          token: string
+          used: boolean
+        }
+        Insert: {
+          candidate_email?: string | null
+          candidate_name?: string | null
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          job_role_id: string
+          token?: string
+          used?: boolean
+        }
+        Update: {
+          candidate_email?: string | null
+          candidate_name?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          job_role_id?: string
+          token?: string
+          used?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_links_job_role_id_fkey"
+            columns: ["job_role_id"]
+            isOneToOne: false
+            referencedRelation: "job_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_questions: {
+        Row: {
+          created_at: string
+          difficulty: Database["public"]["Enums"]["difficulty_level"]
+          id: string
+          interview_id: string
+          question_order: number
+          question_text: string
+          question_type: Database["public"]["Enums"]["question_type"]
+        }
+        Insert: {
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["difficulty_level"]
+          id?: string
+          interview_id: string
+          question_order?: number
+          question_text: string
+          question_type?: Database["public"]["Enums"]["question_type"]
+        }
+        Update: {
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["difficulty_level"]
+          id?: string
+          interview_id?: string
+          question_order?: number
+          question_text?: string
+          question_type?: Database["public"]["Enums"]["question_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_questions_interview_id_fkey"
+            columns: ["interview_id"]
+            isOneToOne: false
+            referencedRelation: "interviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_scores: {
+        Row: {
+          ai_feedback: string | null
+          communication_score: number
+          confidence_score: number
+          created_at: string
+          decision: Database["public"]["Enums"]["interview_decision"]
+          id: string
+          interview_id: string
+          overall_rating: number
+          technical_score: number
+        }
+        Insert: {
+          ai_feedback?: string | null
+          communication_score?: number
+          confidence_score?: number
+          created_at?: string
+          decision?: Database["public"]["Enums"]["interview_decision"]
+          id?: string
+          interview_id: string
+          overall_rating?: number
+          technical_score?: number
+        }
+        Update: {
+          ai_feedback?: string | null
+          communication_score?: number
+          confidence_score?: number
+          created_at?: string
+          decision?: Database["public"]["Enums"]["interview_decision"]
+          id?: string
+          interview_id?: string
+          overall_rating?: number
+          technical_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_scores_interview_id_fkey"
+            columns: ["interview_id"]
+            isOneToOne: true
+            referencedRelation: "interviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interviews: {
+        Row: {
+          candidate_email: string | null
+          candidate_name: string
+          completed_at: string | null
+          created_at: string
+          flagged: boolean
+          id: string
+          link_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["interview_status"]
+          tab_switch_count: number
+          updated_at: string
+        }
+        Insert: {
+          candidate_email?: string | null
+          candidate_name?: string
+          completed_at?: string | null
+          created_at?: string
+          flagged?: boolean
+          id?: string
+          link_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["interview_status"]
+          tab_switch_count?: number
+          updated_at?: string
+        }
+        Update: {
+          candidate_email?: string | null
+          candidate_name?: string
+          completed_at?: string | null
+          created_at?: string
+          flagged?: boolean
+          id?: string
+          link_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["interview_status"]
+          tab_switch_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interviews_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "interview_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          difficulty: Database["public"]["Enums"]["difficulty_level"]
+          id: string
+          is_active: boolean
+          question_count: number
+          required_skills: string[]
+          time_per_question: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string
+          difficulty?: Database["public"]["Enums"]["difficulty_level"]
+          id?: string
+          is_active?: boolean
+          question_count?: number
+          required_skills?: string[]
+          time_per_question?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          difficulty?: Database["public"]["Enums"]["difficulty_level"]
+          id?: string
+          is_active?: boolean
+          question_count?: number
+          required_skills?: string[]
+          time_per_question?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          company: string | null
+          created_at: string
+          full_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          company?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          company?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "hr"
+      difficulty_level: "easy" | "medium" | "hard"
+      interview_decision: "selected" | "rejected" | "pending"
+      interview_status:
+        | "pending"
+        | "in_progress"
+        | "completed"
+        | "auto_submitted"
+      question_type: "technical" | "hr" | "scenario"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +471,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "hr"],
+      difficulty_level: ["easy", "medium", "hard"],
+      interview_decision: ["selected", "rejected", "pending"],
+      interview_status: [
+        "pending",
+        "in_progress",
+        "completed",
+        "auto_submitted",
+      ],
+      question_type: ["technical", "hr", "scenario"],
+    },
   },
 } as const
