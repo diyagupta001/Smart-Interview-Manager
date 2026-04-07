@@ -424,7 +424,9 @@ export default function InterviewFlow() {
                 <p>⏱️ <strong>{timePerQuestion} seconds</strong> per question</p>
                 <p>🎤 You can type or use voice input</p>
                 <p>🔊 Questions can be read aloud</p>
-                <p>⚠️ Tab switching will be monitored</p>
+                <p>⚠️ Tab switching & window changes are monitored</p>
+                <p>🚫 Opening new tabs, right-click, and copy are disabled</p>
+                <p>🔒 3 violations will auto-submit your interview</p>
               </div>
               <div className="space-y-2">
                 <Label>Your Name</Label>
