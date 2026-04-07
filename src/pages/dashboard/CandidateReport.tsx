@@ -5,9 +5,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Loader2, AlertTriangle, CheckCircle2, XCircle, Download } from "lucide-react";
+import { ArrowLeft, Loader2, AlertTriangle, CheckCircle2, XCircle, Download, Eye, EyeOff, Monitor, Keyboard, Copy, Camera } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
+
+interface Violation {
+  id: string;
+  violation_type: string;
+  description: string;
+  created_at: string;
+}
+
+const violationIcons: Record<string, any> = {
+  tab_switch: Monitor,
+  no_face: Camera,
+  window_blur: EyeOff,
+  new_window: Eye,
+  copy_attempt: Copy,
+  shortcut_blocked: Keyboard,
+};
+
+const violationLabels: Record<string, string> = {
+  tab_switch: "Tab Switch",
+  no_face: "No Face Detected",
+  window_blur: "Window Lost Focus",
+  new_window: "New Window Attempt",
+  copy_attempt: "Copy Attempt",
+  shortcut_blocked: "Blocked Shortcut",
+};
 
 export default function CandidateReport() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +42,7 @@ export default function CandidateReport() {
   const [answers, setAnswers] = useState<any[]>([]);
   const [score, setScore] = useState<any>(null);
   const [jobTitle, setJobTitle] = useState("");
+  const [violations, setViolations] = useState<Violation[]>([]);
 
   useEffect(() => { if (id) loadReport(); }, [id]);
 
@@ -37,10 +63,17 @@ export default function CandidateReport() {
     const { data: sc } = await supabase.from("interview_scores").select("*").eq("interview_id", id!).single();
     setScore(sc);
 
+    const { data: viol } = await supabase.from("interview_violations").select("*").eq("interview_id", id!).order("created_at");
+    setViolations(viol || []);
+
     setLoading(false);
   };
 
   const exportPDF = () => {
+    const violationText = violations.length > 0
+      ? violations.map((v, i) => `${i + 1}. [${format(new Date(v.created_at), "HH:mm:ss")}] ${violationLabels[v.violation_type] || v.violation_type}: ${v.description}`).join("\n")
+      : "None";
+
     const content = `
 INTERVIEW REPORT
 ================
@@ -62,6 +95,10 @@ Decision: ${score?.decision === "selected" ? "✅ SELECTED" : "❌ REJECTED"}
 FEEDBACK
 --------
 ${score?.ai_feedback || "N/A"}
+
+PROCTORING VIOLATIONS (${violations.length})
+-------------------
+${violationText}
 
 QUESTIONS & ANSWERS
 -------------------
@@ -91,6 +128,12 @@ Flagged: ${interview?.flagged ? "Yes" : "No"}
     { label: "Communication", value: score?.communication_score || 0, color: "bg-accent" },
     { label: "Confidence", value: score?.confidence_score || 0, color: "bg-warning" },
   ];
+
+  // Group violations by type for summary
+  const violationSummary = violations.reduce<Record<string, number>>((acc, v) => {
+    acc[v.violation_type] = (acc[v.violation_type] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -144,7 +187,55 @@ Flagged: ${interview?.flagged ? "Yes" : "No"}
             <AlertTriangle className="h-5 w-5 text-destructive" />
             <div>
               <p className="font-medium text-destructive">Suspicious Activity Detected</p>
-              <p className="text-sm text-muted-foreground">{interview.tab_switch_count} tab switches recorded during interview</p>
+              <p className="text-sm text-muted-foreground">{interview.tab_switch_count} violations recorded during interview</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Proctoring Violations */}
+      {violations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Proctoring Violations ({violations.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Summary badges */}
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(violationSummary).map(([type, count]) => {
+                const Icon = violationIcons[type] || AlertTriangle;
+                return (
+                  <Badge key={type} variant="outline" className="gap-1.5 py-1">
+                    <Icon className="h-3 w-3" />
+                    {violationLabels[type] || type}: {count}
+                  </Badge>
+                );
+              })}
+            </div>
+
+            {/* Timeline */}
+            <div className="relative border-l-2 border-muted ml-3 space-y-3">
+              {violations.map((v) => {
+                const Icon = violationIcons[v.violation_type] || AlertTriangle;
+                return (
+                  <div key={v.id} className="flex items-start gap-3 pl-4 relative">
+                    <div className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-destructive/20 flex items-center justify-center">
+                      <div className="h-2 w-2 rounded-full bg-destructive" />
+                    </div>
+                    <div className="flex-1 flex items-center gap-2 text-sm">
+                      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="font-medium">{violationLabels[v.violation_type] || v.violation_type}</span>
+                      <span className="text-muted-foreground">— {v.description}</span>
+                      <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                        {format(new Date(v.created_at), "HH:mm:ss")}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
