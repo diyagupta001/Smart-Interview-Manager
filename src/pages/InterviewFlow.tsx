@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Mic, MicOff, Volume2, VolumeX, Play, Pause, RotateCcw, Clock, AlertTriangle, Loader2, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+import { Brain, Mic, MicOff, Volume2, VolumeX, Play, Pause, RotateCcw, Clock, AlertTriangle, Loader2, CheckCircle2, XCircle, ArrowRight, Camera, CameraOff, Video } from "lucide-react";
 
 type Phase = "loading" | "expired" | "welcome" | "interview" | "analyzing" | "result";
 
@@ -58,6 +58,15 @@ export default function InterviewFlow() {
   const [tabWarnings, setTabWarnings] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
+  // Webcam state
+  const [webcamEnabled, setWebcamEnabled] = useState(false);
+  const [webcamError, setWebcamError] = useState("");
+  const [faceDetected, setFaceDetected] = useState(true);
+  const webcamStreamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const faceCheckIntervalRef = useRef<any>(null);
+
   // Result
   const [score, setScore] = useState<Score | null>(null);
 
@@ -91,6 +100,43 @@ export default function InterviewFlow() {
     setCandidateEmail(link.candidate_email || "");
     setPhase("welcome");
   };
+
+  // Webcam: start stream
+  const startWebcam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: "user" }, audio: false });
+      webcamStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setWebcamEnabled(true);
+      setWebcamError("");
+    } catch (err: any) {
+      console.error("Webcam error:", err);
+      setWebcamError("Camera access denied. Please allow camera access to proceed.");
+      setWebcamEnabled(false);
+    }
+  };
+
+  // Webcam: stop stream
+  const stopWebcam = () => {
+    webcamStreamRef.current?.getTracks().forEach(t => t.stop());
+    webcamStreamRef.current = null;
+    setWebcamEnabled(false);
+    if (faceCheckIntervalRef.current) clearInterval(faceCheckIntervalRef.current);
+  };
+
+  // Webcam: attach stream to video element when ref is ready
+  useEffect(() => {
+    if (videoRef.current && webcamStreamRef.current) {
+      videoRef.current.srcObject = webcamStreamRef.current;
+    }
+  }, [phase, webcamEnabled]);
+
+  // Cleanup webcam on unmount
+  useEffect(() => {
+    return () => stopWebcam();
+  }, []);
 
   // Anti-cheating: unified violation handler
   const registerViolation = useCallback((reason: string) => {
@@ -185,6 +231,51 @@ export default function InterviewFlow() {
       document.removeEventListener("copy", handleCopy);
     };
   }, [phase, registerViolation]);
+
+  // Webcam: face presence check using canvas brightness analysis
+  useEffect(() => {
+    if (phase !== "interview" || !webcamEnabled) return;
+
+    let noFaceCount = 0;
+
+    faceCheckIntervalRef.current = setInterval(() => {
+      if (!videoRef.current || !canvasRef.current) return;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      if (!ctx || video.readyState < 2) return;
+
+      canvas.width = 160;
+      canvas.height = 120;
+      ctx.drawImage(video, 0, 0, 160, 120);
+      const imageData = ctx.getImageData(0, 0, 160, 120);
+      const data = imageData.data;
+
+      let skinPixels = 0;
+      const total = data.length / 4;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        if (r > 95 && g > 40 && b > 20 && r > g && r > b && Math.abs(r - g) > 15 && r - b > 15) {
+          skinPixels++;
+        }
+      }
+
+      const skinRatio = skinPixels / total;
+      if (skinRatio < 0.05) {
+        noFaceCount++;
+        setFaceDetected(false);
+        if (noFaceCount >= 3) {
+          registerViolation("No face detected in webcam");
+          noFaceCount = 0;
+        }
+      } else {
+        noFaceCount = 0;
+        setFaceDetected(true);
+      }
+    }, 3000);
+
+    return () => clearInterval(faceCheckIntervalRef.current);
+  }, [phase, webcamEnabled, registerViolation]);
 
   // Timer
   useEffect(() => {
@@ -424,10 +515,37 @@ export default function InterviewFlow() {
                 <p>⏱️ <strong>{timePerQuestion} seconds</strong> per question</p>
                 <p>🎤 You can type or use voice input</p>
                 <p>🔊 Questions can be read aloud</p>
+                <p>📹 Webcam monitoring is required throughout</p>
                 <p>⚠️ Tab switching & window changes are monitored</p>
                 <p>🚫 Opening new tabs, right-click, and copy are disabled</p>
                 <p>🔒 3 violations will auto-submit your interview</p>
               </div>
+
+              {/* Webcam permission */}
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Camera Access</span>
+                  </div>
+                  {webcamEnabled ? (
+                    <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
+                  ) : (
+                    <Badge variant="outline">Required</Badge>
+                  )}
+                </div>
+                {webcamEnabled ? (
+                  <div className="relative rounded-lg overflow-hidden bg-black aspect-video max-w-[240px] mx-auto">
+                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={startWebcam} className="w-full gap-2">
+                    <Camera className="h-4 w-4" /> Enable Camera
+                  </Button>
+                )}
+                {webcamError && <p className="text-xs text-destructive">{webcamError}</p>}
+              </div>
+
               <div className="space-y-2">
                 <Label>Your Name</Label>
                 <Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Enter your name" />
@@ -436,7 +554,7 @@ export default function InterviewFlow() {
                 <Label>Email (optional)</Label>
                 <Input type="email" value={candidateEmail} onChange={e => setCandidateEmail(e.target.value)} placeholder="your@email.com" />
               </div>
-              <Button onClick={startInterview} disabled={!candidateName.trim()} className="w-full gap-2">
+              <Button onClick={startInterview} disabled={!candidateName.trim() || !webcamEnabled} className="w-full gap-2">
                 Start Interview <ArrowRight className="h-4 w-4" />
               </Button>
             </CardContent>
@@ -530,6 +648,9 @@ export default function InterviewFlow() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Hidden canvas for face detection */}
+      <canvas ref={canvasRef} className="hidden" />
+
       {/* Header */}
       <header className="border-b px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -537,6 +658,11 @@ export default function InterviewFlow() {
           <span className="font-semibold text-sm">{jobTitle}</span>
         </div>
         <div className="flex items-center gap-4">
+          {!faceDetected && (
+            <Badge variant="destructive" className="gap-1 animate-pulse">
+              <CameraOff className="h-3 w-3" /> No face detected
+            </Badge>
+          )}
           {tabWarnings > 0 && (
             <Badge variant="destructive" className="gap-1">
               <AlertTriangle className="h-3 w-3" /> {tabWarnings} warning{tabWarnings > 1 ? "s" : ""}
@@ -558,61 +684,101 @@ export default function InterviewFlow() {
         <Progress value={((currentQ + 1) / questions.length) * 100} className="h-2" />
       </div>
 
-      {/* Question */}
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentQ}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{q.question_type}</Badge>
-                <Badge variant="outline">{q.difficulty}</Badge>
+      {/* Main content with webcam sidebar */}
+      <div className="flex">
+        {/* Question area */}
+        <div className="flex-1 max-w-3xl mx-auto px-6 py-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentQ}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{q.question_type}</Badge>
+                  <Badge variant="outline">{q.difficulty}</Badge>
+                </div>
+                <h2 className="text-xl font-semibold">{q.question_text}</h2>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={speakQuestion} className="gap-1">
+                    {isSpeaking ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+                    {isSpeaking ? "Stop" : "Listen"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={replayQuestion} className="gap-1">
+                    <RotateCcw className="h-3 w-3" /> Replay
+                  </Button>
+                </div>
               </div>
-              <h2 className="text-xl font-semibold">{q.question_text}</h2>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={speakQuestion} className="gap-1">
-                  {isSpeaking ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
-                  {isSpeaking ? "Stop" : "Listen"}
-                </Button>
-                <Button size="sm" variant="outline" onClick={replayQuestion} className="gap-1">
-                  <RotateCcw className="h-3 w-3" /> Replay
-                </Button>
-              </div>
-            </div>
 
-            <div className="space-y-3">
-              <Textarea
-                value={answer}
-                onChange={e => setAnswer(e.target.value)}
-                placeholder="Type your answer here..."
-                rows={6}
-                className="resize-none"
-              />
-              <div className="flex items-center justify-between">
-                <Button
-                  variant={isRecording ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={toggleVoice}
-                  className="gap-2"
-                >
-                  {isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                  {isRecording ? "Stop Recording" : "Voice Input"}
-                </Button>
-                <Button onClick={handleNextQuestion} disabled={submitting} className="gap-2">
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {currentQ >= questions.length - 1 ? "Submit Interview" : "Next Question"}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+              <div className="space-y-3">
+                <Textarea
+                  value={answer}
+                  onChange={e => setAnswer(e.target.value)}
+                  placeholder="Type your answer here..."
+                  rows={6}
+                  className="resize-none"
+                />
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant={isRecording ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={toggleVoice}
+                    className="gap-2"
+                  >
+                    {isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                    {isRecording ? "Stop Recording" : "Voice Input"}
+                  </Button>
+                  <Button onClick={handleNextQuestion} disabled={submitting} className="gap-2">
+                    {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {currentQ >= questions.length - 1 ? "Submit Interview" : "Next Question"}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Webcam feed - fixed sidebar */}
+        {webcamEnabled && (
+          <div className="hidden md:block w-64 p-4 border-l">
+            <div className="sticky top-4 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <div className={`h-2 w-2 rounded-full ${faceDetected ? 'bg-green-500' : 'bg-destructive animate-pulse'}`} />
+                {faceDetected ? "Monitoring active" : "Face not detected"}
+              </div>
+              <div className={`relative rounded-lg overflow-hidden bg-black aspect-video border-2 ${faceDetected ? 'border-green-500/30' : 'border-destructive'}`}>
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                <div className="absolute top-1 right-1">
+                  <div className="flex items-center gap-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                    <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                    REC
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground text-center">Your webcam is being monitored</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile webcam - floating pip */}
+      {webcamEnabled && (
+        <div className="md:hidden fixed bottom-4 right-4 z-50">
+          <div className={`relative w-28 h-20 rounded-lg overflow-hidden border-2 shadow-lg ${faceDetected ? 'border-green-500/30' : 'border-destructive'}`}>
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+            <div className="absolute top-0.5 right-0.5">
+              <div className="flex items-center gap-0.5 bg-black/60 text-white text-[8px] px-1 py-0.5 rounded">
+                <div className="h-1 w-1 rounded-full bg-red-500 animate-pulse" />
+                REC
               </div>
             </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
