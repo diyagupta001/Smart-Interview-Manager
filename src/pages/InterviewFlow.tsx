@@ -515,10 +515,37 @@ export default function InterviewFlow() {
                 <p>⏱️ <strong>{timePerQuestion} seconds</strong> per question</p>
                 <p>🎤 You can type or use voice input</p>
                 <p>🔊 Questions can be read aloud</p>
+                <p>📹 Webcam monitoring is required throughout</p>
                 <p>⚠️ Tab switching & window changes are monitored</p>
                 <p>🚫 Opening new tabs, right-click, and copy are disabled</p>
                 <p>🔒 3 violations will auto-submit your interview</p>
               </div>
+
+              {/* Webcam permission */}
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Camera Access</span>
+                  </div>
+                  {webcamEnabled ? (
+                    <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
+                  ) : (
+                    <Badge variant="outline">Required</Badge>
+                  )}
+                </div>
+                {webcamEnabled ? (
+                  <div className="relative rounded-lg overflow-hidden bg-black aspect-video max-w-[240px] mx-auto">
+                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={startWebcam} className="w-full gap-2">
+                    <Camera className="h-4 w-4" /> Enable Camera
+                  </Button>
+                )}
+                {webcamError && <p className="text-xs text-destructive">{webcamError}</p>}
+              </div>
+
               <div className="space-y-2">
                 <Label>Your Name</Label>
                 <Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Enter your name" />
@@ -527,7 +554,7 @@ export default function InterviewFlow() {
                 <Label>Email (optional)</Label>
                 <Input type="email" value={candidateEmail} onChange={e => setCandidateEmail(e.target.value)} placeholder="your@email.com" />
               </div>
-              <Button onClick={startInterview} disabled={!candidateName.trim()} className="w-full gap-2">
+              <Button onClick={startInterview} disabled={!candidateName.trim() || !webcamEnabled} className="w-full gap-2">
                 Start Interview <ArrowRight className="h-4 w-4" />
               </Button>
             </CardContent>
