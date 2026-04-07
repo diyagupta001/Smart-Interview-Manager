@@ -101,6 +101,90 @@ export default function InterviewFlow() {
     setPhase("welcome");
   };
 
+  // Webcam: start stream
+  const startWebcam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: "user" }, audio: false });
+      webcamStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setWebcamEnabled(true);
+      setWebcamError("");
+    } catch (err: any) {
+      console.error("Webcam error:", err);
+      setWebcamError("Camera access denied. Please allow camera access to proceed.");
+      setWebcamEnabled(false);
+    }
+  };
+
+  // Webcam: stop stream
+  const stopWebcam = () => {
+    webcamStreamRef.current?.getTracks().forEach(t => t.stop());
+    webcamStreamRef.current = null;
+    setWebcamEnabled(false);
+    if (faceCheckIntervalRef.current) clearInterval(faceCheckIntervalRef.current);
+  };
+
+  // Webcam: attach stream to video element when ref is ready
+  useEffect(() => {
+    if (videoRef.current && webcamStreamRef.current) {
+      videoRef.current.srcObject = webcamStreamRef.current;
+    }
+  }, [phase, webcamEnabled]);
+
+  // Webcam: basic face presence check using canvas brightness analysis
+  useEffect(() => {
+    if (phase !== "interview" || !webcamEnabled) return;
+
+    let noFaceCount = 0;
+
+    faceCheckIntervalRef.current = setInterval(() => {
+      if (!videoRef.current || !canvasRef.current) return;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      if (!ctx || video.readyState < 2) return;
+
+      canvas.width = 160;
+      canvas.height = 120;
+      ctx.drawImage(video, 0, 0, 160, 120);
+      const imageData = ctx.getImageData(0, 0, 160, 120);
+      const data = imageData.data;
+
+      // Analyze center region for skin-tone-like pixels
+      let skinPixels = 0;
+      const total = data.length / 4;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        // Basic skin tone heuristic
+        if (r > 95 && g > 40 && b > 20 && r > g && r > b && Math.abs(r - g) > 15 && r - b > 15) {
+          skinPixels++;
+        }
+      }
+
+      const skinRatio = skinPixels / total;
+      if (skinRatio < 0.05) {
+        noFaceCount++;
+        setFaceDetected(false);
+        if (noFaceCount >= 3) {
+          registerViolation("No face detected in webcam");
+          noFaceCount = 0;
+        }
+      } else {
+        noFaceCount = 0;
+        setFaceDetected(true);
+      }
+    }, 3000);
+
+    return () => clearInterval(faceCheckIntervalRef.current);
+  }, [phase, webcamEnabled, registerViolation]);
+
+  // Cleanup webcam on unmount
+  useEffect(() => {
+    return () => stopWebcam();
+  }, []);
+
   // Anti-cheating: unified violation handler
   const registerViolation = useCallback((reason: string) => {
     setTabWarnings(prev => {
