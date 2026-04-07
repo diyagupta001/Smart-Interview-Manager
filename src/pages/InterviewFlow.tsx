@@ -648,6 +648,9 @@ export default function InterviewFlow() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Hidden canvas for face detection */}
+      <canvas ref={canvasRef} className="hidden" />
+
       {/* Header */}
       <header className="border-b px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -655,6 +658,11 @@ export default function InterviewFlow() {
           <span className="font-semibold text-sm">{jobTitle}</span>
         </div>
         <div className="flex items-center gap-4">
+          {!faceDetected && (
+            <Badge variant="destructive" className="gap-1 animate-pulse">
+              <CameraOff className="h-3 w-3" /> No face detected
+            </Badge>
+          )}
           {tabWarnings > 0 && (
             <Badge variant="destructive" className="gap-1">
               <AlertTriangle className="h-3 w-3" /> {tabWarnings} warning{tabWarnings > 1 ? "s" : ""}
@@ -676,61 +684,101 @@ export default function InterviewFlow() {
         <Progress value={((currentQ + 1) / questions.length) * 100} className="h-2" />
       </div>
 
-      {/* Question */}
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentQ}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{q.question_type}</Badge>
-                <Badge variant="outline">{q.difficulty}</Badge>
+      {/* Main content with webcam sidebar */}
+      <div className="flex">
+        {/* Question area */}
+        <div className="flex-1 max-w-3xl mx-auto px-6 py-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentQ}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{q.question_type}</Badge>
+                  <Badge variant="outline">{q.difficulty}</Badge>
+                </div>
+                <h2 className="text-xl font-semibold">{q.question_text}</h2>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={speakQuestion} className="gap-1">
+                    {isSpeaking ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+                    {isSpeaking ? "Stop" : "Listen"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={replayQuestion} className="gap-1">
+                    <RotateCcw className="h-3 w-3" /> Replay
+                  </Button>
+                </div>
               </div>
-              <h2 className="text-xl font-semibold">{q.question_text}</h2>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={speakQuestion} className="gap-1">
-                  {isSpeaking ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
-                  {isSpeaking ? "Stop" : "Listen"}
-                </Button>
-                <Button size="sm" variant="outline" onClick={replayQuestion} className="gap-1">
-                  <RotateCcw className="h-3 w-3" /> Replay
-                </Button>
-              </div>
-            </div>
 
-            <div className="space-y-3">
-              <Textarea
-                value={answer}
-                onChange={e => setAnswer(e.target.value)}
-                placeholder="Type your answer here..."
-                rows={6}
-                className="resize-none"
-              />
-              <div className="flex items-center justify-between">
-                <Button
-                  variant={isRecording ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={toggleVoice}
-                  className="gap-2"
-                >
-                  {isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                  {isRecording ? "Stop Recording" : "Voice Input"}
-                </Button>
-                <Button onClick={handleNextQuestion} disabled={submitting} className="gap-2">
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {currentQ >= questions.length - 1 ? "Submit Interview" : "Next Question"}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+              <div className="space-y-3">
+                <Textarea
+                  value={answer}
+                  onChange={e => setAnswer(e.target.value)}
+                  placeholder="Type your answer here..."
+                  rows={6}
+                  className="resize-none"
+                />
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant={isRecording ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={toggleVoice}
+                    className="gap-2"
+                  >
+                    {isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                    {isRecording ? "Stop Recording" : "Voice Input"}
+                  </Button>
+                  <Button onClick={handleNextQuestion} disabled={submitting} className="gap-2">
+                    {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {currentQ >= questions.length - 1 ? "Submit Interview" : "Next Question"}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Webcam feed - fixed sidebar */}
+        {webcamEnabled && (
+          <div className="hidden md:block w-64 p-4 border-l">
+            <div className="sticky top-4 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <div className={`h-2 w-2 rounded-full ${faceDetected ? 'bg-green-500' : 'bg-destructive animate-pulse'}`} />
+                {faceDetected ? "Monitoring active" : "Face not detected"}
+              </div>
+              <div className={`relative rounded-lg overflow-hidden bg-black aspect-video border-2 ${faceDetected ? 'border-green-500/30' : 'border-destructive'}`}>
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                <div className="absolute top-1 right-1">
+                  <div className="flex items-center gap-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                    <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                    REC
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground text-center">Your webcam is being monitored</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile webcam - floating pip */}
+      {webcamEnabled && (
+        <div className="md:hidden fixed bottom-4 right-4 z-50">
+          <div className={`relative w-28 h-20 rounded-lg overflow-hidden border-2 shadow-lg ${faceDetected ? 'border-green-500/30' : 'border-destructive'}`}>
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+            <div className="absolute top-0.5 right-0.5">
+              <div className="flex items-center gap-0.5 bg-black/60 text-white text-[8px] px-1 py-0.5 rounded">
+                <div className="h-1 w-1 rounded-full bg-red-500 animate-pulse" />
+                REC
               </div>
             </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
