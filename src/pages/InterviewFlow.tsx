@@ -92,30 +92,99 @@ export default function InterviewFlow() {
     setPhase("welcome");
   };
 
+  // Anti-cheating: unified violation handler
+  const registerViolation = useCallback((reason: string) => {
+    setTabWarnings(prev => {
+      const next = prev + 1;
+      if (next >= 3) {
+        toast({ title: "⚠️ Interview auto-submitted", description: "Too many violations detected.", variant: "destructive" });
+        autoSubmit();
+      } else {
+        toast({ title: `⚠️ Warning ${next}/3`, description: `${reason}. This activity is being monitored.`, variant: "destructive" });
+      }
+      supabase.from("interviews").update({ tab_switch_count: next, flagged: next >= 2 }).eq("id", interviewId).then(() => {});
+      return next;
+    });
+  }, [interviewId]);
+
   // Anti-cheating: tab switch detection
   useEffect(() => {
     if (phase !== "interview") return;
 
     const handleVisibility = () => {
-      if (document.hidden) {
-        setTabWarnings(prev => {
-          const next = prev + 1;
-          if (next >= 3) {
-            toast({ title: "⚠️ Interview auto-submitted", description: "Too many tab switches detected.", variant: "destructive" });
-            autoSubmit();
-          } else {
-            toast({ title: `⚠️ Warning ${next}/3`, description: "Tab switching detected. This activity is being monitored.", variant: "destructive" });
-          }
-          // Update in DB
-          supabase.from("interviews").update({ tab_switch_count: next, flagged: next >= 2 }).eq("id", interviewId).then(() => {});
-          return next;
-        });
-      }
+      if (document.hidden) registerViolation("Tab switch detected");
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [phase, interviewId]);
+  }, [phase, registerViolation]);
+
+  // Anti-cheating: block window.open, new tabs, right-click, dev tools shortcuts
+  useEffect(() => {
+    if (phase !== "interview") return;
+
+    // Intercept window.open
+    const originalOpen = window.open;
+    window.open = (...args) => {
+      registerViolation("Attempted to open a new window");
+      return null;
+    };
+
+    // Block blur (catches alt-tab / clicking outside browser)
+    const handleBlur = () => {
+      registerViolation("Window lost focus");
+    };
+
+    // Block right-click context menu
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      toast({ title: "Right-click disabled", description: "Right-click is not allowed during the interview.", variant: "destructive" });
+    };
+
+    // Block keyboard shortcuts for opening new tabs/windows/search
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const blocked = (
+        (e.ctrlKey && e.key === "t") || // new tab
+        (e.ctrlKey && e.key === "n") || // new window
+        (e.ctrlKey && e.key === "w") || // close tab
+        (e.ctrlKey && e.shiftKey && e.key === "N") || // incognito
+        (e.ctrlKey && e.key === "l") || // address bar
+        (e.key === "F5") || // refresh
+        (e.ctrlKey && e.key === "r") || // refresh
+        (e.key === "F12") || // dev tools
+        (e.ctrlKey && e.shiftKey && e.key === "I") || // dev tools
+        (e.ctrlKey && e.shiftKey && e.key === "J") || // console
+        (e.ctrlKey && e.key === "u") // view source
+      );
+      if (blocked) {
+        e.preventDefault();
+        e.stopPropagation();
+        toast({ title: "Action blocked", description: "This action is not allowed during the interview.", variant: "destructive" });
+      }
+    };
+
+    // Block copy/paste to discourage web lookups
+    const handleCopy = (e: ClipboardEvent) => {
+      // Allow paste in the answer textarea only
+      if (e.type === "copy") {
+        e.preventDefault();
+        toast({ title: "Copy disabled", description: "Copying content is not allowed during the interview.", variant: "destructive" });
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("copy", handleCopy);
+
+    return () => {
+      window.open = originalOpen;
+      window.removeEventListener("blur", handleBlur);
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("copy", handleCopy);
+    };
+  }, [phase, registerViolation]);
 
   // Timer
   useEffect(() => {
@@ -355,7 +424,9 @@ export default function InterviewFlow() {
                 <p>⏱️ <strong>{timePerQuestion} seconds</strong> per question</p>
                 <p>🎤 You can type or use voice input</p>
                 <p>🔊 Questions can be read aloud</p>
-                <p>⚠️ Tab switching will be monitored</p>
+                <p>⚠️ Tab switching & window changes are monitored</p>
+                <p>🚫 Opening new tabs, right-click, and copy are disabled</p>
+                <p>🔒 3 violations will auto-submit your interview</p>
               </div>
               <div className="space-y-2">
                 <Label>Your Name</Label>
