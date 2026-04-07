@@ -182,6 +182,38 @@ export type Database = {
           },
         ]
       }
+      interview_violations: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          interview_id: string
+          violation_type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          interview_id: string
+          violation_type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          interview_id?: string
+          violation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_violations_interview_id_fkey"
+            columns: ["interview_id"]
+            isOneToOne: false
+            referencedRelation: "interviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interviews: {
         Row: {
           candidate_email: string | null

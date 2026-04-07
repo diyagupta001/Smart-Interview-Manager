@@ -138,8 +138,29 @@ export default function InterviewFlow() {
     return () => stopWebcam();
   }, []);
 
+  // Determine violation type from reason string
+  const getViolationType = (reason: string): string => {
+    if (reason.toLowerCase().includes("tab switch")) return "tab_switch";
+    if (reason.toLowerCase().includes("no face")) return "no_face";
+    if (reason.toLowerCase().includes("focus") || reason.toLowerCase().includes("blur")) return "window_blur";
+    if (reason.toLowerCase().includes("window")) return "new_window";
+    if (reason.toLowerCase().includes("copy")) return "copy_attempt";
+    return "shortcut_blocked";
+  };
+
   // Anti-cheating: unified violation handler
   const registerViolation = useCallback((reason: string) => {
+    const violationType = getViolationType(reason);
+
+    // Log violation to database
+    if (interviewId) {
+      supabase.from("interview_violations").insert({
+        interview_id: interviewId,
+        violation_type: violationType,
+        description: reason,
+      }).then(() => {});
+    }
+
     setTabWarnings(prev => {
       const next = prev + 1;
       if (next >= 3) {
