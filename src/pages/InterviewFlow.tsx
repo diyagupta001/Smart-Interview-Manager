@@ -63,9 +63,18 @@ export default function InterviewFlow() {
   const [webcamError, setWebcamError] = useState("");
   const [faceDetected, setFaceDetected] = useState(true);
   const webcamStreamRef = useRef<MediaStream | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const welcomeVideoRef = useRef<HTMLVideoElement | null>(null);
+  const interviewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mobileVideoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const faceCheckIntervalRef = useRef<any>(null);
+
+  // Helper: attach stream to a video element
+  const attachStream = (el: HTMLVideoElement | null) => {
+    if (el && webcamStreamRef.current) {
+      el.srcObject = webcamStreamRef.current;
+    }
+  };
 
   // Result
   const [score, setScore] = useState<Score | null>(null);
