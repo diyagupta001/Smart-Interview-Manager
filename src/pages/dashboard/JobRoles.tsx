@@ -103,9 +103,15 @@ export default function JobRoles() {
 
   const generateLink = async () => {
     if (!user || !selectedJobId) return;
+    if (sendEmail && !candidateEmail.trim()) {
+      toast({ title: "Email required", description: "Please enter the candidate's email to send the link.", variant: "destructive" });
+      return;
+    }
     setGeneratingLink(true);
     const hours = expiry === "1h" ? 1 : expiry === "24h" ? 24 : 168;
     const expires_at = new Date(Date.now() + hours * 3600000).toISOString();
+
+    const selectedJob = jobs.find(j => j.id === selectedJobId);
 
     const { data, error } = await supabase.from("interview_links").insert({
       job_role_id: selectedJobId,
@@ -117,10 +123,34 @@ export default function JobRoles() {
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      const link = `${window.location.origin}/interview/${data.token}`;
-      setGeneratedLink(link);
+      setGeneratingLink(false);
+      return;
     }
+
+    const link = `${window.location.origin}/interview/${data.token}`;
+    setGeneratedLink(link);
+
+    if (sendEmail && candidateEmail.trim()) {
+      try {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke("send-interview-email", {
+          body: {
+            candidateEmail: candidateEmail.trim(),
+            candidateName: candidateName.trim() || undefined,
+            jobTitle: selectedJob?.title || "Interview",
+            interviewLink: link,
+          },
+        });
+
+        if (emailError) throw emailError;
+
+        setEmailSent(true);
+        toast({ title: "Email sent!", description: `Interview link emailed to ${candidateEmail}` });
+      } catch (emailErr: any) {
+        console.error("Email send error:", emailErr);
+        toast({ title: "Link generated but email failed", description: emailErr.message || "Could not send email. You can copy the link manually.", variant: "destructive" });
+      }
+    }
+
     setGeneratingLink(false);
   };
 
