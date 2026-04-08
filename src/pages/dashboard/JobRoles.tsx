@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Copy, Link as LinkIcon, Loader2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Link as LinkIcon, Loader2, Search, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -38,11 +39,13 @@ export default function JobRoles() {
   const [saving, setSaving] = useState(false);
 
   // Link generation
+  const [sendEmail, setSendEmail] = useState(true);
   const [expiry, setExpiry] = useState("24h");
   const [candidateName, setCandidateName] = useState("");
   const [candidateEmail, setCandidateEmail] = useState("");
   const [generatedLink, setGeneratedLink] = useState("");
   const [generatingLink, setGeneratingLink] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => { loadJobs(); }, [user]);
 
@@ -94,15 +97,21 @@ export default function JobRoles() {
 
   const openLinkDialog = (jobId: string) => {
     setSelectedJobId(jobId);
-    setCandidateName(""); setCandidateEmail(""); setGeneratedLink(""); setExpiry("24h");
+    setCandidateName(""); setCandidateEmail(""); setGeneratedLink(""); setExpiry("24h"); setSendEmail(true); setEmailSent(false);
     setLinkDialogOpen(true);
   };
 
   const generateLink = async () => {
     if (!user || !selectedJobId) return;
+    if (sendEmail && !candidateEmail.trim()) {
+      toast({ title: "Email required", description: "Please enter the candidate's email to send the link.", variant: "destructive" });
+      return;
+    }
     setGeneratingLink(true);
     const hours = expiry === "1h" ? 1 : expiry === "24h" ? 24 : 168;
     const expires_at = new Date(Date.now() + hours * 3600000).toISOString();
+
+    const selectedJob = jobs.find(j => j.id === selectedJobId);
 
     const { data, error } = await supabase.from("interview_links").insert({
       job_role_id: selectedJobId,
@@ -114,10 +123,34 @@ export default function JobRoles() {
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      const link = `${window.location.origin}/interview/${data.token}`;
-      setGeneratedLink(link);
+      setGeneratingLink(false);
+      return;
     }
+
+    const link = `${window.location.origin}/interview/${data.token}`;
+    setGeneratedLink(link);
+
+    if (sendEmail && candidateEmail.trim()) {
+      try {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke("send-interview-email", {
+          body: {
+            candidateEmail: candidateEmail.trim(),
+            candidateName: candidateName.trim() || undefined,
+            jobTitle: selectedJob?.title || "Interview",
+            interviewLink: link,
+          },
+        });
+
+        if (emailError) throw emailError;
+
+        setEmailSent(true);
+        toast({ title: "Email sent!", description: `Interview link emailed to ${candidateEmail}` });
+      } catch (emailErr: any) {
+        console.error("Email send error:", emailErr);
+        toast({ title: "Link generated but email failed", description: emailErr.message || "Could not send email. You can copy the link manually.", variant: "destructive" });
+      }
+    }
+
     setGeneratingLink(false);
   };
 
@@ -213,13 +246,12 @@ export default function JobRoles() {
         </DialogContent>
       </Dialog>
 
-      {/* Link Generation Dialog */}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Generate Interview Link</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Candidate Name (optional)</Label><Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="John Doe" /></div>
-            <div className="space-y-2"><Label>Candidate Email (optional)</Label><Input type="email" value={candidateEmail} onChange={e => setCandidateEmail(e.target.value)} placeholder="john@example.com" /></div>
+            <div className="space-y-2"><Label>Candidate Email {sendEmail && <span className="text-destructive">*</span>}</Label><Input type="email" value={candidateEmail} onChange={e => setCandidateEmail(e.target.value)} placeholder="john@example.com" /></div>
             <div className="space-y-2">
               <Label>Link Expiry</Label>
               <Select value={expiry} onValueChange={setExpiry}>
@@ -232,18 +264,34 @@ export default function JobRoles() {
               </Select>
             </div>
 
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="send-email" className="cursor-pointer">Send email to candidate</Label>
+              </div>
+              <Switch id="send-email" checked={sendEmail} onCheckedChange={setSendEmail} />
+            </div>
+
             {!generatedLink ? (
-              <Button onClick={generateLink} disabled={generatingLink} className="w-full">
-                {generatingLink && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Generate Link
+              <Button onClick={generateLink} disabled={generatingLink} className="w-full gap-2">
+                {generatingLink && <Loader2 className="h-4 w-4 animate-spin" />}
+                {sendEmail ? <><Mail className="h-4 w-4" /> Generate & Send Link</> : "Generate Link"}
               </Button>
             ) : (
               <div className="space-y-3">
+                {emailSent && (
+                  <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950 p-3">
+                    <Mail className="h-4 w-4 text-green-600" />
+                    <p className="text-sm text-green-700 dark:text-green-400">Email sent to {candidateEmail}</p>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 rounded-lg border bg-muted p-3">
                   <code className="flex-1 text-xs break-all">{generatedLink}</code>
                   <Button size="sm" variant="outline" onClick={copyLink}><Copy className="h-3 w-3" /></Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Share this link with the candidate. It can only be used once.</p>
+                <p className="text-xs text-muted-foreground">
+                  {emailSent ? "The link has been emailed. You can also copy it above." : "Share this link with the candidate. It can only be used once."}
+                </p>
               </div>
             )}
           </div>
