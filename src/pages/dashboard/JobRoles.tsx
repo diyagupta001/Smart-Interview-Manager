@@ -39,11 +39,13 @@ export default function JobRoles() {
   const [saving, setSaving] = useState(false);
 
   // Link generation
+  const [sendEmail, setSendEmail] = useState(true);
   const [expiry, setExpiry] = useState("24h");
   const [candidateName, setCandidateName] = useState("");
   const [candidateEmail, setCandidateEmail] = useState("");
   const [generatedLink, setGeneratedLink] = useState("");
   const [generatingLink, setGeneratingLink] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => { loadJobs(); }, [user]);
 
