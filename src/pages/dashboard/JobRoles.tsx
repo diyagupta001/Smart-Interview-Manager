@@ -97,7 +97,7 @@ export default function JobRoles() {
 
   const openLinkDialog = (jobId: string) => {
     setSelectedJobId(jobId);
-    setCandidateName(""); setCandidateEmail(""); setGeneratedLink(""); setExpiry("24h");
+    setCandidateName(""); setCandidateEmail(""); setGeneratedLink(""); setExpiry("24h"); setSendEmail(true); setEmailSent(false);
     setLinkDialogOpen(true);
   };
 
