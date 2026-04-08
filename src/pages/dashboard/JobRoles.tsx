@@ -246,13 +246,12 @@ export default function JobRoles() {
         </DialogContent>
       </Dialog>
 
-      {/* Link Generation Dialog */}
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Generate Interview Link</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Candidate Name (optional)</Label><Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="John Doe" /></div>
-            <div className="space-y-2"><Label>Candidate Email (optional)</Label><Input type="email" value={candidateEmail} onChange={e => setCandidateEmail(e.target.value)} placeholder="john@example.com" /></div>
+            <div className="space-y-2"><Label>Candidate Email {sendEmail && <span className="text-destructive">*</span>}</Label><Input type="email" value={candidateEmail} onChange={e => setCandidateEmail(e.target.value)} placeholder="john@example.com" /></div>
             <div className="space-y-2">
               <Label>Link Expiry</Label>
               <Select value={expiry} onValueChange={setExpiry}>
@@ -265,18 +264,34 @@ export default function JobRoles() {
               </Select>
             </div>
 
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="send-email" className="cursor-pointer">Send email to candidate</Label>
+              </div>
+              <Switch id="send-email" checked={sendEmail} onCheckedChange={setSendEmail} />
+            </div>
+
             {!generatedLink ? (
-              <Button onClick={generateLink} disabled={generatingLink} className="w-full">
-                {generatingLink && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Generate Link
+              <Button onClick={generateLink} disabled={generatingLink} className="w-full gap-2">
+                {generatingLink && <Loader2 className="h-4 w-4 animate-spin" />}
+                {sendEmail ? <><Mail className="h-4 w-4" /> Generate & Send Link</> : "Generate Link"}
               </Button>
             ) : (
               <div className="space-y-3">
+                {emailSent && (
+                  <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950 p-3">
+                    <Mail className="h-4 w-4 text-green-600" />
+                    <p className="text-sm text-green-700 dark:text-green-400">Email sent to {candidateEmail}</p>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 rounded-lg border bg-muted p-3">
                   <code className="flex-1 text-xs break-all">{generatedLink}</code>
                   <Button size="sm" variant="outline" onClick={copyLink}><Copy className="h-3 w-3" /></Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Share this link with the candidate. It can only be used once.</p>
+                <p className="text-xs text-muted-foreground">
+                  {emailSent ? "The link has been emailed. You can also copy it above." : "Share this link with the candidate. It can only be used once."}
+                </p>
               </div>
             )}
           </div>
