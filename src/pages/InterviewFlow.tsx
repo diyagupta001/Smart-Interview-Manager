@@ -63,9 +63,18 @@ export default function InterviewFlow() {
   const [webcamError, setWebcamError] = useState("");
   const [faceDetected, setFaceDetected] = useState(true);
   const webcamStreamRef = useRef<MediaStream | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const welcomeVideoRef = useRef<HTMLVideoElement | null>(null);
+  const interviewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mobileVideoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const faceCheckIntervalRef = useRef<any>(null);
+
+  // Helper: attach stream to a video element
+  const attachStream = (el: HTMLVideoElement | null) => {
+    if (el && webcamStreamRef.current) {
+      el.srcObject = webcamStreamRef.current;
+    }
+  };
 
   // Result
   const [score, setScore] = useState<Score | null>(null);
@@ -106,9 +115,9 @@ export default function InterviewFlow() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: "user" }, audio: false });
       webcamStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      attachStream(welcomeVideoRef.current);
+      attachStream(interviewVideoRef.current);
+      attachStream(mobileVideoRef.current);
       setWebcamEnabled(true);
       setWebcamError("");
     } catch (err: any) {
@@ -126,11 +135,11 @@ export default function InterviewFlow() {
     if (faceCheckIntervalRef.current) clearInterval(faceCheckIntervalRef.current);
   };
 
-  // Webcam: attach stream to video element when ref is ready
+  // Re-attach stream when phase changes and video elements mount
   useEffect(() => {
-    if (videoRef.current && webcamStreamRef.current) {
-      videoRef.current.srcObject = webcamStreamRef.current;
-    }
+    attachStream(welcomeVideoRef.current);
+    attachStream(interviewVideoRef.current);
+    attachStream(mobileVideoRef.current);
   }, [phase, webcamEnabled]);
 
   // Cleanup webcam on unmount
@@ -260,8 +269,8 @@ export default function InterviewFlow() {
     let noFaceCount = 0;
 
     faceCheckIntervalRef.current = setInterval(() => {
-      if (!videoRef.current || !canvasRef.current) return;
-      const video = videoRef.current;
+      const video = interviewVideoRef.current || mobileVideoRef.current;
+      if (!video || !canvasRef.current) return;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
       if (!ctx || video.readyState < 2) return;
@@ -557,7 +566,7 @@ export default function InterviewFlow() {
                 </div>
                 {webcamEnabled ? (
                   <div className="relative rounded-lg overflow-hidden bg-black aspect-video max-w-[240px] mx-auto">
-                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    <video ref={welcomeVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                   </div>
                 ) : (
                   <Button variant="outline" size="sm" onClick={startWebcam} className="w-full gap-2">
@@ -772,7 +781,7 @@ export default function InterviewFlow() {
                 {faceDetected ? "Monitoring active" : "Face not detected"}
               </div>
               <div className={`relative rounded-lg overflow-hidden bg-black aspect-video border-2 ${faceDetected ? 'border-green-500/30' : 'border-destructive'}`}>
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                <video ref={(el) => { interviewVideoRef.current = el; attachStream(el); }} autoPlay playsInline muted className="w-full h-full object-cover" />
                 <div className="absolute top-1 right-1">
                   <div className="flex items-center gap-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
                     <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
@@ -790,7 +799,7 @@ export default function InterviewFlow() {
       {webcamEnabled && (
         <div className="md:hidden fixed bottom-4 right-4 z-50">
           <div className={`relative w-28 h-20 rounded-lg overflow-hidden border-2 shadow-lg ${faceDetected ? 'border-green-500/30' : 'border-destructive'}`}>
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+            <video ref={(el) => { mobileVideoRef.current = el; attachStream(el); }} autoPlay playsInline muted className="w-full h-full object-cover" />
             <div className="absolute top-0.5 right-0.5">
               <div className="flex items-center gap-0.5 bg-black/60 text-white text-[8px] px-1 py-0.5 rounded">
                 <div className="h-1 w-1 rounded-full bg-red-500 animate-pulse" />
