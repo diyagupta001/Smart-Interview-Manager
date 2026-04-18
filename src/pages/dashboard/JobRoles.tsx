@@ -148,9 +148,12 @@ export default function JobRoles() {
         const openPixelUrl = `${trackBase}?t=${data.token}&type=open`;
         const trackedLink = `${trackBase}?t=${data.token}&type=click&origin=${origin}`;
 
-        const emailMessage = `Hello ${candidateName.trim() || "Candidate"},
+        const candidateDisplayName = candidateName.trim() || "Candidate";
+        const roleTitle = selectedJob?.title || "the role";
 
-You have been invited to take an AI-powered interview for the position of ${selectedJob?.title || "the role"}.
+        const emailMessage = `Hello ${candidateDisplayName},
+
+You have been invited to take an AI-powered interview for the position of ${roleTitle}.
 
 📋 Interview Details:
 • Role: ${selectedJob?.title || "N/A"}
@@ -173,6 +176,66 @@ ${trackedLink}
 Best of luck!
 The Hiring Team`;
 
+        // Minimal, professional HTML email (white bg, subtle borders, single accent)
+        const ACCENT = "#0f172a"; // slate-900 — swap to your brand hex if desired
+        const htmlMessage = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Interview Invitation</title></head>
+<body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <tr><td style="padding:28px 32px 20px 32px;border-bottom:1px solid #f1f5f9;">
+          <div style="font-size:13px;letter-spacing:.08em;color:#64748b;text-transform:uppercase;font-weight:600;">The Hiring Team</div>
+          <h1 style="margin:8px 0 0 0;font-size:22px;line-height:1.3;color:#0f172a;font-weight:700;">You're invited to interview</h1>
+        </td></tr>
+        <tr><td style="padding:24px 32px 8px 32px;">
+          <p style="margin:0 0 12px 0;font-size:15px;line-height:1.6;color:#334155;">Hi ${candidateDisplayName},</p>
+          <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#334155;">You've been invited to take an AI-powered interview for the <strong style="color:#0f172a;">${roleTitle}</strong> position. Below are the details and your unique interview link.</p>
+        </td></tr>
+        <tr><td style="padding:0 32px 8px 32px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;">
+            <tr><td style="padding:16px 18px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#334155;">
+                <tr><td style="padding:4px 0;color:#64748b;width:140px;">Role</td><td style="padding:4px 0;color:#0f172a;font-weight:600;">${selectedJob?.title || "N/A"}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b;">Difficulty</td><td style="padding:4px 0;color:#0f172a;font-weight:600;text-transform:capitalize;">${selectedJob?.difficulty || "medium"}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b;">Questions</td><td style="padding:4px 0;color:#0f172a;font-weight:600;">${selectedJob?.question_count || 0}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b;">Time per question</td><td style="padding:4px 0;color:#0f172a;font-weight:600;">${selectedJob?.time_per_question || 0} seconds</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b;vertical-align:top;">Key skills</td><td style="padding:4px 0;color:#0f172a;font-weight:600;">${skillsList}</td></tr>
+              </table>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td align="center" style="padding:24px 32px 8px 32px;">
+          <a href="${trackedLink}" style="display:inline-block;background:${ACCENT};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:8px;">Start Interview →</a>
+        </td></tr>
+        <tr><td align="center" style="padding:0 32px 20px 32px;">
+          <p style="margin:8px 0 0 0;font-size:12px;color:#94a3b8;">Or paste this link into your browser:</p>
+          <p style="margin:4px 0 0 0;font-size:12px;color:#475569;word-break:break-all;"><a href="${trackedLink}" style="color:#475569;text-decoration:underline;">${trackedLink}</a></p>
+        </td></tr>
+        <tr><td style="padding:8px 32px 20px 32px;">
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:13px;color:#92400e;">
+            ⏰ This link expires in <strong>${expiryLabel}</strong> (on ${expiresOn}) and can only be used once.
+          </div>
+        </td></tr>
+        <tr><td style="padding:0 32px 24px 32px;">
+          <h3 style="margin:8px 0 8px 0;font-size:14px;color:#0f172a;font-weight:700;">Before you start</h3>
+          <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.7;color:#334155;">
+            <li>Find a quiet place with a stable internet connection.</li>
+            <li>Click the button above when you're ready to begin.</li>
+            <li>Do not switch tabs or leave the interview window — this is flagged.</li>
+            <li>Answer each question within the allotted time.</li>
+          </ul>
+        </td></tr>
+        <tr><td style="padding:18px 32px;background:#f8fafc;border-top:1px solid #f1f5f9;">
+          <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">Best of luck! — The Hiring Team</p>
+        </td></tr>
+      </table>
+      <p style="font-size:11px;color:#94a3b8;margin:16px 0 0 0;">If you didn't expect this email, you can safely ignore it.</p>
+    </td></tr>
+  </table>
+  <img src="${openPixelUrl}" width="1" height="1" alt="" style="display:none;visibility:hidden;opacity:0;width:1px;height:1px;">
+</body></html>`;
+
         await emailjs.send(
           EMAILJS_SERVICE_ID,
           EMAILJS_TEMPLATE_ID,
@@ -180,9 +243,10 @@ The Hiring Team`;
             candidate_email: candidateEmail.trim(),
             to_email: candidateEmail.trim(),
             email: candidateEmail.trim(),
-            to_name: candidateName.trim() || "Candidate",
-            candidate_name: candidateName.trim() || "Candidate",
+            to_name: candidateDisplayName,
+            candidate_name: candidateDisplayName,
             from_name: "Hiring Team",
+            subject: `Interview Invitation — ${roleTitle}`,
             job_title: selectedJob?.title || "Interview",
             job_description: selectedJob?.description || "",
             difficulty: selectedJob?.difficulty || "medium",
@@ -194,6 +258,7 @@ The Hiring Team`;
             expiry_label: expiryLabel,
             expires_on: expiresOn,
             message: emailMessage,
+            html_message: htmlMessage,
           },
           { publicKey: EMAILJS_PUBLIC_KEY }
         );
