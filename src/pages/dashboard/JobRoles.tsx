@@ -137,14 +137,52 @@ export default function JobRoles() {
 
     if (sendEmail && candidateEmail.trim()) {
       try {
+        const expiryLabel = expiry === "1h" ? "1 hour" : expiry === "24h" ? "24 hours" : "7 days";
+        const expiresOn = new Date(Date.now() + hours * 3600000).toLocaleString();
+        const skillsList = selectedJob?.required_skills?.join(", ") || "General";
+
+        const emailMessage = `Hello ${candidateName.trim() || "Candidate"},
+
+You have been invited to take an AI-powered interview for the position of ${selectedJob?.title || "the role"}.
+
+📋 Interview Details:
+• Role: ${selectedJob?.title || "N/A"}
+• Difficulty: ${selectedJob?.difficulty || "medium"}
+• Number of Questions: ${selectedJob?.question_count || 0}
+• Time per Question: ${selectedJob?.time_per_question || 0} seconds
+• Key Skills: ${skillsList}
+
+🔗 Your Interview Link:
+${link}
+
+⏰ This link expires in ${expiryLabel} (on ${expiresOn}) and can only be used once.
+
+📝 Instructions:
+1. Find a quiet place with a stable internet connection.
+2. Click the link above when you're ready to begin.
+3. Do not switch tabs or leave the interview window — this will be flagged.
+4. Answer each question within the allotted time.
+
+Best of luck!
+The Hiring Team`;
+
         await emailjs.send(
           EMAILJS_SERVICE_ID,
           EMAILJS_TEMPLATE_ID,
           {
             to_email: candidateEmail.trim(),
             to_name: candidateName.trim() || "Candidate",
+            from_name: "Hiring Team",
             job_title: selectedJob?.title || "Interview",
+            job_description: selectedJob?.description || "",
+            difficulty: selectedJob?.difficulty || "medium",
+            question_count: String(selectedJob?.question_count || 0),
+            time_per_question: String(selectedJob?.time_per_question || 0),
+            required_skills: skillsList,
             interview_link: link,
+            expiry_label: expiryLabel,
+            expires_on: expiresOn,
+            message: emailMessage,
           },
           { publicKey: EMAILJS_PUBLIC_KEY }
         );
