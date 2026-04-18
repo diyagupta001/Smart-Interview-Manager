@@ -170,8 +170,11 @@ The Hiring Team`;
           EMAILJS_SERVICE_ID,
           EMAILJS_TEMPLATE_ID,
           {
+            candidate_email: candidateEmail.trim(),
             to_email: candidateEmail.trim(),
+            email: candidateEmail.trim(),
             to_name: candidateName.trim() || "Candidate",
+            candidate_name: candidateName.trim() || "Candidate",
             from_name: "Hiring Team",
             job_title: selectedJob?.title || "Interview",
             job_description: selectedJob?.description || "",
@@ -188,7 +191,7 @@ The Hiring Team`;
         );
 
         setEmailSent(true);
-        toast({ title: "Email sent!", description: `Interview link emailed to ${candidateEmail}` });
+        toast({ title: "✅ Email sent successfully!", description: `Interview invitation delivered to ${candidateEmail.trim()}` });
       } catch (emailErr: any) {
         console.error("Email send error:", emailErr);
         const msg = emailErr?.text || emailErr?.message || "Could not send email. You can copy the link manually.";
