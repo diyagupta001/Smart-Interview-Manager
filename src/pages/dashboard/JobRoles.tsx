@@ -13,7 +13,12 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Copy, Link as LinkIcon, Loader2, Search, Mail } from "lucide-react";
 import { motion } from "framer-motion";
+import emailjs from "@emailjs/browser";
 import type { Database } from "@/integrations/supabase/types";
+
+const EMAILJS_SERVICE_ID = "service_m5gse5n";
+const EMAILJS_TEMPLATE_ID = "template_ap9skv1";
+const EMAILJS_PUBLIC_KEY = "ivfLSVOohJQe7EtRU";
 
 type JobRole = Database["public"]["Tables"]["job_roles"]["Row"];
 type Difficulty = Database["public"]["Enums"]["difficulty_level"];
