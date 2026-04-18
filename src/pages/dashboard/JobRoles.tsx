@@ -16,8 +16,8 @@ import { motion } from "framer-motion";
 import emailjs from "@emailjs/browser";
 import type { Database } from "@/integrations/supabase/types";
 
-const EMAILJS_SERVICE_ID = "service_ktmsjhi";
-const EMAILJS_TEMPLATE_ID = "template_ap9skv1";
+const EMAILJS_SERVICE_ID = "service_dioruso";
+const EMAILJS_TEMPLATE_ID = "template_yrknou5";
 const EMAILJS_PUBLIC_KEY = "ivfLSVOohJQe7EtRU";
 
 type JobRole = Database["public"]["Tables"]["job_roles"]["Row"];
@@ -170,8 +170,11 @@ The Hiring Team`;
           EMAILJS_SERVICE_ID,
           EMAILJS_TEMPLATE_ID,
           {
+            candidate_email: candidateEmail.trim(),
             to_email: candidateEmail.trim(),
+            email: candidateEmail.trim(),
             to_name: candidateName.trim() || "Candidate",
+            candidate_name: candidateName.trim() || "Candidate",
             from_name: "Hiring Team",
             job_title: selectedJob?.title || "Interview",
             job_description: selectedJob?.description || "",
@@ -188,7 +191,7 @@ The Hiring Team`;
         );
 
         setEmailSent(true);
-        toast({ title: "Email sent!", description: `Interview link emailed to ${candidateEmail}` });
+        toast({ title: "✅ Email sent successfully!", description: `Interview invitation delivered to ${candidateEmail.trim()}` });
       } catch (emailErr: any) {
         console.error("Email send error:", emailErr);
         const msg = emailErr?.text || emailErr?.message || "Could not send email. You can copy the link manually.";
