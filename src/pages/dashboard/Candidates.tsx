@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Loader2, AlertTriangle, Eye } from "lucide-react";
+import { Search, Loader2, AlertTriangle, Eye, MailOpen, MousePointerClick, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 
 interface CandidateRow {
@@ -21,6 +22,8 @@ interface CandidateRow {
   score: number;
   flagged: boolean;
   date: string;
+  emailOpenedAt: string | null;
+  linkClickedAt: string | null;
 }
 
 export default function Candidates() {

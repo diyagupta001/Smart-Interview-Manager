@@ -141,6 +141,13 @@ export default function JobRoles() {
         const expiresOn = new Date(Date.now() + hours * 3600000).toLocaleString();
         const skillsList = selectedJob?.required_skills?.join(", ") || "General";
 
+        // Tracking URLs (open pixel + click redirect through edge function)
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const origin = encodeURIComponent(window.location.origin);
+        const trackBase = `https://${projectId}.functions.supabase.co/track-link`;
+        const openPixelUrl = `${trackBase}?t=${data.token}&type=open`;
+        const trackedLink = `${trackBase}?t=${data.token}&type=click&origin=${origin}`;
+
         const emailMessage = `Hello ${candidateName.trim() || "Candidate"},
 
 You have been invited to take an AI-powered interview for the position of ${selectedJob?.title || "the role"}.
