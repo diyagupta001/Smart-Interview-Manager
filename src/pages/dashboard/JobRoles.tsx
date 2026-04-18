@@ -16,7 +16,7 @@ import { motion } from "framer-motion";
 import emailjs from "@emailjs/browser";
 import type { Database } from "@/integrations/supabase/types";
 
-const EMAILJS_SERVICE_ID = "service_m5gse5n";
+const EMAILJS_SERVICE_ID = "service_ktmsjhi";
 const EMAILJS_TEMPLATE_ID = "template_ap9skv1";
 const EMAILJS_PUBLIC_KEY = "ivfLSVOohJQe7EtRU";
 
