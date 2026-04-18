@@ -67,6 +67,8 @@ export default function Candidates() {
         score: score?.overall_rating || 0,
         flagged: i.flagged,
         date: i.created_at,
+        emailOpenedAt: (link as any)?.email_opened_at || null,
+        linkClickedAt: (link as any)?.link_clicked_at || null,
       };
     });
 

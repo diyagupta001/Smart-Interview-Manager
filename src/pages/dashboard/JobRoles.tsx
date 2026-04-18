@@ -160,7 +160,7 @@ You have been invited to take an AI-powered interview for the position of ${sele
 • Key Skills: ${skillsList}
 
 🔗 Your Interview Link:
-${link}
+${trackedLink}
 
 ⏰ This link expires in ${expiryLabel} (on ${expiresOn}) and can only be used once.
 
@@ -189,7 +189,8 @@ The Hiring Team`;
             question_count: String(selectedJob?.question_count || 0),
             time_per_question: String(selectedJob?.time_per_question || 0),
             required_skills: skillsList,
-            interview_link: link,
+            interview_link: trackedLink,
+            tracking_pixel_url: openPixelUrl,
             expiry_label: expiryLabel,
             expires_on: expiresOn,
             message: emailMessage,
