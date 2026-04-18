@@ -137,22 +137,24 @@ export default function JobRoles() {
 
     if (sendEmail && candidateEmail.trim()) {
       try {
-        const { data: emailData, error: emailError } = await supabase.functions.invoke("send-interview-email", {
-          body: {
-            candidateEmail: candidateEmail.trim(),
-            candidateName: candidateName.trim() || undefined,
-            jobTitle: selectedJob?.title || "Interview",
-            interviewLink: link,
+        await emailjs.send(
+          EMAILJS_SERVICE_ID,
+          EMAILJS_TEMPLATE_ID,
+          {
+            to_email: candidateEmail.trim(),
+            to_name: candidateName.trim() || "Candidate",
+            job_title: selectedJob?.title || "Interview",
+            interview_link: link,
           },
-        });
-
-        if (emailError) throw emailError;
+          { publicKey: EMAILJS_PUBLIC_KEY }
+        );
 
         setEmailSent(true);
         toast({ title: "Email sent!", description: `Interview link emailed to ${candidateEmail}` });
       } catch (emailErr: any) {
         console.error("Email send error:", emailErr);
-        toast({ title: "Link generated but email failed", description: emailErr.message || "Could not send email. You can copy the link manually.", variant: "destructive" });
+        const msg = emailErr?.text || emailErr?.message || "Could not send email. You can copy the link manually.";
+        toast({ title: "Link generated but email failed", description: msg, variant: "destructive" });
       }
     }
 
