@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anyone can update tracking timestamps" ON public.interview_links;

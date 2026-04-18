@@ -141,6 +141,13 @@ export default function JobRoles() {
         const expiresOn = new Date(Date.now() + hours * 3600000).toLocaleString();
         const skillsList = selectedJob?.required_skills?.join(", ") || "General";
 
+        // Tracking URLs (open pixel + click redirect through edge function)
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const origin = encodeURIComponent(window.location.origin);
+        const trackBase = `https://${projectId}.functions.supabase.co/track-link`;
+        const openPixelUrl = `${trackBase}?t=${data.token}&type=open`;
+        const trackedLink = `${trackBase}?t=${data.token}&type=click&origin=${origin}`;
+
         const emailMessage = `Hello ${candidateName.trim() || "Candidate"},
 
 You have been invited to take an AI-powered interview for the position of ${selectedJob?.title || "the role"}.
@@ -153,7 +160,7 @@ You have been invited to take an AI-powered interview for the position of ${sele
 • Key Skills: ${skillsList}
 
 🔗 Your Interview Link:
-${link}
+${trackedLink}
 
 ⏰ This link expires in ${expiryLabel} (on ${expiresOn}) and can only be used once.
 
@@ -182,7 +189,8 @@ The Hiring Team`;
             question_count: String(selectedJob?.question_count || 0),
             time_per_question: String(selectedJob?.time_per_question || 0),
             required_skills: skillsList,
-            interview_link: link,
+            interview_link: trackedLink,
+            tracking_pixel_url: openPixelUrl,
             expiry_label: expiryLabel,
             expires_on: expiresOn,
             message: emailMessage,

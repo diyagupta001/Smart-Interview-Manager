@@ -62,9 +62,11 @@ export type Database = {
           candidate_name: string | null
           created_at: string
           created_by: string
+          email_opened_at: string | null
           expires_at: string
           id: string
           job_role_id: string
+          link_clicked_at: string | null
           token: string
           used: boolean
         }
@@ -73,9 +75,11 @@ export type Database = {
           candidate_name?: string | null
           created_at?: string
           created_by: string
+          email_opened_at?: string | null
           expires_at: string
           id?: string
           job_role_id: string
+          link_clicked_at?: string | null
           token?: string
           used?: boolean
         }
@@ -84,9 +88,11 @@ export type Database = {
           candidate_name?: string | null
           created_at?: string
           created_by?: string
+          email_opened_at?: string | null
           expires_at?: string
           id?: string
           job_role_id?: string
+          link_clicked_at?: string | null
           token?: string
           used?: boolean
         }
