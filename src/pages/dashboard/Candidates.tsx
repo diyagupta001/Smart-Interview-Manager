@@ -129,6 +129,7 @@ export default function Candidates() {
                 <TableHead>Role</TableHead>
                 <TableHead>Score</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Engagement</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Flags</TableHead>
                 <TableHead></TableHead>
@@ -146,6 +147,36 @@ export default function Candidates() {
                   <TableCell><Badge variant="outline">{r.role}</Badge></TableCell>
                   <TableCell><span className="font-semibold">{r.score}/100</span></TableCell>
                   <TableCell>{decisionBadge(r.decision)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {r.emailOpenedAt ? (
+                            <MailOpen className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Mail className="h-4 w-4 text-muted-foreground/40" />
+                          )}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {r.emailOpenedAt
+                            ? `Email opened ${format(new Date(r.emailOpenedAt), "MMM d, h:mm a")}`
+                            : "Email not opened yet"}
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <MousePointerClick
+                            className={`h-4 w-4 ${r.linkClickedAt ? "text-primary" : "text-muted-foreground/40"}`}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {r.linkClickedAt
+                            ? `Link clicked ${format(new Date(r.linkClickedAt), "MMM d, h:mm a")}`
+                            : "Link not clicked yet"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{format(new Date(r.date), "MMM d, yyyy")}</TableCell>
                   <TableCell>{r.flagged && <AlertTriangle className="h-4 w-4 text-destructive" />}</TableCell>
                   <TableCell>
