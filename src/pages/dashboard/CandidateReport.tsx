@@ -250,6 +250,41 @@ Flagged: ${interview?.flagged ? "Yes" : "No"}
       )}
 
       {/* Q&A */}
+      {score?.debug_details && Object.keys(score.debug_details).length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Evaluation Audit Trail</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-2 text-sm">
+              <p><span className="text-muted-foreground">Answered:</span> {score.debug_details.answered_count}/{score.debug_details.total_questions} ({score.debug_details.answered_ratio_percent}%)</p>
+              <p><span className="text-muted-foreground">Score cap from answer coverage:</span> {score.debug_details.score_cap_applied}</p>
+              <p><span className="text-muted-foreground">Tab switches:</span> {score.debug_details.proctoring?.tab_switch_count} (penalty −{score.debug_details.proctoring?.tab_switch_penalty})</p>
+              <p><span className="text-muted-foreground">Model:</span> {score.debug_details.model}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{score.debug_details.overall_formula}</p>
+            <div className="space-y-2">
+              {(score.debug_details.questions || []).map((q: any) => (
+                <div key={q.index} className="rounded-md border p-3 text-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="text-xs">Q{q.index}</Badge>
+                    <Badge variant="outline" className="text-xs">{q.question_type}</Badge>
+                    <Badge variant={q.counted_as_substantive ? "secondary" : "destructive"} className="text-xs">
+                      {q.counted_as_substantive ? "Counted" : "Scored 0"}
+                    </Badge>
+                    <span className="ml-auto text-xs text-muted-foreground">{q.answer_word_count} words · {q.time_taken_seconds}s</span>
+                  </div>
+                  <p className="font-medium">{q.question_text}</p>
+                  <p className="text-muted-foreground mt-1">{q.recognized_answer || "(nothing recognized)"}</p>
+                </div>
+              ))}
+            </div>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground">Raw model output</summary>
+              <pre className="mt-2 overflow-auto rounded-md bg-muted p-3">{JSON.stringify(score.debug_details.raw_model_scores, null, 2)}</pre>
+            </details>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle className="text-lg">Questions & Answers</CardTitle></CardHeader>
         <CardContent className="space-y-6">
