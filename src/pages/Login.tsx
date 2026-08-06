@@ -24,7 +24,16 @@ export default function Login() {
       await signIn(email, password);
       navigate("/dashboard");
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      const msg = String(err?.message ?? "");
+      toast({
+        title: "Could not sign in",
+        description: msg.toLowerCase().includes("invalid login credentials")
+          ? "Wrong email or password. If you forgot it, use “Forgot password?” to reset."
+          : msg.toLowerCase().includes("email not confirmed")
+            ? "Please confirm your email first — check your inbox for the verification link."
+            : msg,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -58,6 +67,7 @@ export default function Login() {
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign In
             </Button>
+            <Link to="/forgot-password" className="text-sm text-primary hover:underline">Forgot password?</Link>
             <p className="text-sm text-muted-foreground">
               Don't have an account? <Link to="/signup" className="text-primary hover:underline">Sign up</Link>
             </p>

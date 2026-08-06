@@ -26,7 +26,15 @@ export default function Signup() {
       toast({ title: "Account created!", description: "Please check your email to verify your account." });
       navigate("/login");
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      const msg = String(err?.message ?? "");
+      const exists = msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("already been registered") || msg.toLowerCase().includes("user already");
+      toast({
+        title: exists ? "Account already exists" : "Could not create account",
+        description: exists
+          ? "This email is already registered. Sign in instead, or reset your password if you forgot it."
+          : msg,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
