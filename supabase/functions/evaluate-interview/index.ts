@@ -183,7 +183,7 @@ Interview facts:
     // Audit trail: exactly what the score was computed from.
     const debug_details = {
       evaluated_at: new Date().toISOString(),
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-3.6-flash",
       questions: qaPairs.map((p, i) => {
         const text = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
         return {
