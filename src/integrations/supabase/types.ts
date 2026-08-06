@@ -150,6 +150,7 @@ export type Database = {
           communication_score: number
           confidence_score: number
           created_at: string
+          debug_details: Json
           decision: Database["public"]["Enums"]["interview_decision"]
           id: string
           interview_id: string
@@ -161,6 +162,7 @@ export type Database = {
           communication_score?: number
           confidence_score?: number
           created_at?: string
+          debug_details?: Json
           decision?: Database["public"]["Enums"]["interview_decision"]
           id?: string
           interview_id: string
@@ -172,6 +174,7 @@ export type Database = {
           communication_score?: number
           confidence_score?: number
           created_at?: string
+          debug_details?: Json
           decision?: Database["public"]["Enums"]["interview_decision"]
           id?: string
           interview_id?: string

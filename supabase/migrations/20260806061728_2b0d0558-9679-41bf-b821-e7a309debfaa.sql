@@ -1,0 +1,1 @@
+ALTER TABLE public.interview_scores ADD COLUMN IF NOT EXISTS debug_details jsonb NOT NULL DEFAULT '{}'::jsonb;
