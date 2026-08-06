@@ -93,6 +93,7 @@ Interview facts:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        model: "google/gemini-3.6-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Evaluate this interview:\n\n${JSON.stringify(qaPairs, null, 2)}` },
