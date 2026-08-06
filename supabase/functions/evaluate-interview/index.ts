@@ -37,6 +37,12 @@ serve(async (req) => {
       .eq("id", interviewId)
       .single();
 
+    const { data: violations } = await supabase
+      .from("interview_violations")
+      .select("violation_type, description, created_at")
+      .eq("interview_id", interviewId)
+      .order("created_at");
+
     // Build Q&A pairs
     const qaPairs = (questions || []).map((q: any) => {
       const ans = (answers || []).find((a: any) => a.question_id === q.id);
@@ -137,8 +143,10 @@ Interview facts:
       ai_feedback: "Evaluation completed.",
     };
 
+    let rawModelEvaluation: any = null;
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
+      rawModelEvaluation = parsed;
       evaluation = {
         technical_score: parsed.technical_score ?? 50,
         communication_score: parsed.communication_score ?? 50,
@@ -171,13 +179,48 @@ Interview facts:
         "No substantive answers were provided during the interview, so the candidate could not be assessed on any dimension.";
     }
 
+    // Audit trail: exactly what the score was computed from.
+    const debug_details = {
+      evaluated_at: new Date().toISOString(),
+      model: "google/gemini-2.5-flash",
+      questions: qaPairs.map((p, i) => {
+        const text = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
+        return {
+          index: i + 1,
+          question_text: p.question,
+          question_type: p.type,
+          difficulty: p.difficulty,
+          recognized_answer: text,
+          answer_char_count: text.length,
+          answer_word_count: text ? text.split(/\s+/).length : 0,
+          time_taken_seconds: p.time_taken,
+          counted_as_substantive: text.length >= 15 && /[a-zA-Z]{3,}/.test(text),
+        };
+      }),
+      answered_count: answered.length,
+      total_questions: qaPairs.length,
+      answered_ratio_percent: Math.round(answeredRatio * 100),
+      score_cap_applied: cap,
+      raw_model_scores: rawModelEvaluation,
+      final_scores: { ...evaluation },
+      overall_formula: "technical*0.40 + communication*0.35 + confidence*0.25, capped by answered ratio",
+      proctoring: {
+        tab_switch_count: tabSwitches,
+        tab_switch_penalty: tabSwitches > 2 ? (tabSwitches - 2) * 10 : 0,
+        flagged: interview?.flagged ?? false,
+        status: interview?.status ?? null,
+        violations: violations || [],
+      },
+    };
+
     // Save scores
     await supabase.from("interview_scores").insert({
       interview_id: interviewId,
       ...evaluation,
+      debug_details,
     });
 
-    return new Response(JSON.stringify({ score: evaluation }), {
+    return new Response(JSON.stringify({ score: evaluation, debug_details }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
