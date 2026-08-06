@@ -49,20 +49,35 @@ serve(async (req) => {
       };
     });
 
-    const systemPrompt = `You are an expert interview evaluator. Analyze the candidate's interview performance based on their answers.
+    const answered = qaPairs.filter((p) => {
+      const t = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
+      return t.length >= 15 && /[a-zA-Z]{3,}/.test(t);
+    });
+    const answeredRatio = qaPairs.length ? answered.length / qaPairs.length : 0;
+
+    const systemPrompt = `You are a STRICT expert interview evaluator. Be harsh and evidence-based. Never be generous.
 
 Evaluate on three dimensions (0-100 each):
 1. Technical Score - accuracy and depth of technical knowledge
 2. Communication Score - clarity, structure, and articulation
 3. Confidence Score - decisiveness, completeness, and conviction
 
+MANDATORY RULES (violating these is a failed evaluation):
+- An empty answer, "(No answer)", gibberish, random characters, a single word, or off-topic text scores 0 for ALL dimensions for that question.
+- Do NOT award "benefit of the doubt" points. There is no baseline or participation score. A missing answer is a 0, never 40-60.
+- Score each question independently, then average. If the candidate answered nothing, ALL scores MUST be 0 and the decision MUST be "rejected".
+- Only answers that demonstrate real, correct, relevant knowledge may exceed 50.
+- 0-20 = nothing/irrelevant, 21-40 = vague or mostly wrong, 41-60 = partially correct but shallow, 61-80 = solid and correct, 81-100 = expert, precise, well-structured.
+
 Also provide:
 - Overall rating (0-100, weighted: technical 40%, communication 35%, confidence 25%)
-- Decision: "selected" if overall >= 60, "rejected" if below
-- Brief personalized feedback (2-3 sentences)
+- Decision: "selected" only if overall >= 60, otherwise "rejected"
+- Brief honest feedback (2-3 sentences) naming concrete gaps
 
-Consider:
-- Tab switches: ${interview?.tab_switch_count || 0} (penalize if > 2)
+Interview facts:
+- Questions asked: ${qaPairs.length}
+- Questions with a substantive answer: ${answered.length} (${Math.round(answeredRatio * 100)}%)
+- Tab switches: ${interview?.tab_switch_count || 0} (penalize heavily if > 2)
 - Auto-submitted: ${interview?.status === "auto_submitted" ? "Yes (suspicious)" : "No"}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -132,6 +147,28 @@ Consider:
         decision: parsed.decision === "selected" ? "selected" : "rejected",
         ai_feedback: parsed.ai_feedback || "Evaluation completed.",
       };
+    }
+
+    // Deterministic guardrails: the model must never reward blank interviews.
+    const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+    const cap = answeredRatio === 0 ? 0 : clamp(answeredRatio * 100);
+    evaluation.technical_score = Math.min(clamp(evaluation.technical_score), cap);
+    evaluation.communication_score = Math.min(clamp(evaluation.communication_score), cap);
+    evaluation.confidence_score = Math.min(clamp(evaluation.confidence_score), cap);
+    evaluation.overall_rating = clamp(
+      evaluation.technical_score * 0.4 +
+        evaluation.communication_score * 0.35 +
+        evaluation.confidence_score * 0.25,
+    );
+    // Proctoring penalty
+    const tabSwitches = interview?.tab_switch_count || 0;
+    if (tabSwitches > 2) {
+      evaluation.overall_rating = clamp(evaluation.overall_rating - (tabSwitches - 2) * 10);
+    }
+    evaluation.decision = (evaluation.overall_rating >= 60 ? "selected" : "rejected") as any;
+    if (answered.length === 0) {
+      evaluation.ai_feedback =
+        "No substantive answers were provided during the interview, so the candidate could not be assessed on any dimension.";
     }
 
     // Save scores
