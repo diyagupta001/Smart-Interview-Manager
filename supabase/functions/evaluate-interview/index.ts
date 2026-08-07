@@ -63,7 +63,15 @@ serve(async (req) => {
 
     const systemPrompt = `You are a STRICT expert interview evaluator. Be harsh and evidence-based. Never be generous.
 
-Evaluate on three dimensions (0-100 each):
+You grade EVERY question individually (LLM rubric grading), then the overall interview.
+
+For EACH question give (0-100 each): technical, communication, confidence — plus:
+- verdict: "no_answer" | "irrelevant" | "incorrect" | "partial" | "good" | "excellent"
+- justification: 1-2 sentences citing the candidate's actual words
+- key_gaps: what a correct answer needed that was missing
+- ideal_answer: 1-2 sentence model answer
+
+Then summarise overall on the same three dimensions (0-100 each):
 1. Technical Score - accuracy and depth of technical knowledge
 2. Communication Score - clarity, structure, and articulation
 3. Confidence Score - decisiveness, completeness, and conviction
@@ -102,10 +110,28 @@ Interview facts:
           type: "function",
           function: {
             name: "submit_evaluation",
-            description: "Submit the interview evaluation scores",
+            description: "Submit per-question grading and the overall interview evaluation scores",
             parameters: {
               type: "object",
               properties: {
+                per_question: {
+                  type: "array",
+                  description: "One entry per question, in the same order as provided",
+                  items: {
+                    type: "object",
+                    properties: {
+                      index: { type: "integer" },
+                      technical: { type: "integer", minimum: 0, maximum: 100 },
+                      communication: { type: "integer", minimum: 0, maximum: 100 },
+                      confidence: { type: "integer", minimum: 0, maximum: 100 },
+                      verdict: { type: "string", enum: ["no_answer", "irrelevant", "incorrect", "partial", "good", "excellent"] },
+                      justification: { type: "string" },
+                      key_gaps: { type: "string" },
+                      ideal_answer: { type: "string" },
+                    },
+                    required: ["index", "technical", "communication", "confidence", "verdict", "justification", "key_gaps", "ideal_answer"],
+                  },
+                },
                 technical_score: { type: "integer", minimum: 0, maximum: 100 },
                 communication_score: { type: "integer", minimum: 0, maximum: 100 },
                 confidence_score: { type: "integer", minimum: 0, maximum: 100 },
@@ -113,7 +139,7 @@ Interview facts:
                 decision: { type: "string", enum: ["selected", "rejected"] },
                 ai_feedback: { type: "string" },
               },
-              required: ["technical_score", "communication_score", "confidence_score", "overall_rating", "decision", "ai_feedback"],
+              required: ["per_question", "technical_score", "communication_score", "confidence_score", "overall_rating", "decision", "ai_feedback"],
             },
           },
         }],
@@ -145,9 +171,11 @@ Interview facts:
     };
 
     let rawModelEvaluation: any = null;
+    let perQuestion: any[] = [];
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
       rawModelEvaluation = parsed;
+      perQuestion = Array.isArray(parsed.per_question) ? parsed.per_question : [];
       evaluation = {
         technical_score: parsed.technical_score ?? 50,
         communication_score: parsed.communication_score ?? 50,
@@ -160,6 +188,33 @@ Interview facts:
 
     // Deterministic guardrails: the model must never reward blank interviews.
     const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+
+    // Normalise per-question LLM grades: anything not substantive is forced to 0.
+    const gradedQuestions = qaPairs.map((p, i) => {
+      const text = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
+      const substantive = text.length >= 15 && /[a-zA-Z]{3,}/.test(text);
+      const g = perQuestion.find((x: any) => Number(x?.index) === i + 1) || perQuestion[i] || {};
+      return {
+        index: i + 1,
+        technical: substantive ? clamp(g.technical ?? 0) : 0,
+        communication: substantive ? clamp(g.communication ?? 0) : 0,
+        confidence: substantive ? clamp(g.confidence ?? 0) : 0,
+        verdict: substantive ? (g.verdict || "partial") : "no_answer",
+        justification: substantive ? (g.justification || "") : "No substantive answer was provided.",
+        key_gaps: g.key_gaps || "",
+        ideal_answer: g.ideal_answer || "",
+      };
+    });
+
+    // Prefer aggregating the per-question LLM grades over the model's own summary.
+    if (gradedQuestions.length) {
+      const avg = (k: "technical" | "communication" | "confidence") =>
+        clamp(gradedQuestions.reduce((s, q) => s + q[k], 0) / gradedQuestions.length);
+      evaluation.technical_score = avg("technical");
+      evaluation.communication_score = avg("communication");
+      evaluation.confidence_score = avg("confidence");
+    }
+
     const cap = answeredRatio === 0 ? 0 : clamp(answeredRatio * 100);
     evaluation.technical_score = Math.min(clamp(evaluation.technical_score), cap);
     evaluation.communication_score = Math.min(clamp(evaluation.communication_score), cap);
@@ -186,6 +241,7 @@ Interview facts:
       model: "google/gemini-3.6-flash",
       questions: qaPairs.map((p, i) => {
         const text = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
+        const graded = gradedQuestions[i];
         return {
           index: i + 1,
           question_text: p.question,
@@ -196,6 +252,17 @@ Interview facts:
           answer_word_count: text ? text.split(/\s+/).length : 0,
           time_taken_seconds: p.time_taken,
           counted_as_substantive: text.length >= 15 && /[a-zA-Z]{3,}/.test(text),
+          llm_grade: graded
+            ? {
+                technical: graded.technical,
+                communication: graded.communication,
+                confidence: graded.confidence,
+                verdict: graded.verdict,
+                justification: graded.justification,
+                key_gaps: graded.key_gaps,
+                ideal_answer: graded.ideal_answer,
+              }
+            : null,
         };
       }),
       answered_count: answered.length,
@@ -204,7 +271,8 @@ Interview facts:
       score_cap_applied: cap,
       raw_model_scores: rawModelEvaluation,
       final_scores: { ...evaluation },
-      overall_formula: "technical*0.40 + communication*0.35 + confidence*0.25, capped by answered ratio",
+      overall_formula:
+        "per-question LLM grades averaged per dimension, then technical*0.40 + communication*0.35 + confidence*0.25, capped by answered ratio",
       proctoring: {
         tab_switch_count: tabSwitches,
         tab_switch_penalty: tabSwitches > 2 ? (tabSwitches - 2) * 10 : 0,
