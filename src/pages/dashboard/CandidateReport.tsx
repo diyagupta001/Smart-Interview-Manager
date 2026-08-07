@@ -274,6 +274,23 @@ Flagged: ${interview?.flagged ? "Yes" : "No"}
                   </div>
                   <p className="font-medium">{q.question_text}</p>
                   <p className="text-muted-foreground mt-1">{q.recognized_answer || "(nothing recognized)"}</p>
+                  {q.llm_grade && (
+                    <div className="mt-2 rounded-md bg-muted/50 p-2 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="text-xs">{q.llm_grade.verdict}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Tech {q.llm_grade.technical} · Comm {q.llm_grade.communication} · Conf {q.llm_grade.confidence}
+                        </span>
+                      </div>
+                      {q.llm_grade.justification && <p className="text-xs">{q.llm_grade.justification}</p>}
+                      {q.llm_grade.key_gaps && (
+                        <p className="text-xs text-muted-foreground"><span className="font-medium">Gaps:</span> {q.llm_grade.key_gaps}</p>
+                      )}
+                      {q.llm_grade.ideal_answer && (
+                        <p className="text-xs text-muted-foreground"><span className="font-medium">Ideal answer:</span> {q.llm_grade.ideal_answer}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
