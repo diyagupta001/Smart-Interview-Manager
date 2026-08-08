@@ -36,7 +36,7 @@ export default function ForgotPassword() {
         <CardHeader className="text-center">
           <Link to="/" className="inline-flex items-center justify-center gap-2 mb-2">
             <Brain className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold">InterviewAI</span>
+            <span className="text-lg font-bold">Intervia</span>
           </Link>
           <CardTitle className="text-2xl">Reset password</CardTitle>
           <CardDescription>

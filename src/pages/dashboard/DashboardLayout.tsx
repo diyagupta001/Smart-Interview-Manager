@@ -28,7 +28,7 @@ export default function DashboardLayout() {
           <div className="flex items-center justify-between px-6 py-5 border-b">
             <Link to="/dashboard" className="flex items-center gap-2">
               <Brain className="h-6 w-6 text-primary" />
-              <span className="font-bold">InterviewAI</span>
+              <span className="font-bold">Intervia</span>
             </Link>
             <button className="lg:hidden" onClick={() => setMobileOpen(false)}>
               <X className="h-5 w-5" />
