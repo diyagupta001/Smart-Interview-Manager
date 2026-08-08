@@ -62,7 +62,10 @@ export type Database = {
           candidate_name: string | null
           created_at: string
           created_by: string
+          email_error: string | null
           email_opened_at: string | null
+          email_sent_at: string | null
+          email_status: string
           expires_at: string
           id: string
           job_role_id: string
@@ -75,7 +78,10 @@ export type Database = {
           candidate_name?: string | null
           created_at?: string
           created_by: string
+          email_error?: string | null
           email_opened_at?: string | null
+          email_sent_at?: string | null
+          email_status?: string
           expires_at: string
           id?: string
           job_role_id: string
@@ -88,7 +94,10 @@ export type Database = {
           candidate_name?: string | null
           created_at?: string
           created_by?: string
+          email_error?: string | null
           email_opened_at?: string | null
+          email_sent_at?: string | null
+          email_status?: string
           expires_at?: string
           id?: string
           job_role_id?: string
