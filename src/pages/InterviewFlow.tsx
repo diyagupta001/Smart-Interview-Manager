@@ -158,15 +158,6 @@ export default function InterviewFlow() {
   const registerViolation = useCallback((reason: string) => {
     const violationType = getViolationType(reason);
 
-    // Log violation to database
-    if (interviewId) {
-      supabase.from("interview_violations").insert({
-        interview_id: interviewId,
-        violation_type: violationType,
-        description: reason,
-      }).then(() => {});
-    }
-
     setTabWarnings(prev => {
       const next = prev + 1;
       if (next >= 3) {
@@ -175,7 +166,17 @@ export default function InterviewFlow() {
       } else {
         toast({ title: `⚠️ Warning ${next}/3`, description: `${reason}. This activity is being monitored.`, variant: "destructive" });
       }
-      supabase.from("interviews").update({ tab_switch_count: next, flagged: next >= 2 }).eq("id", interviewId).then(() => {});
+      if (interviewId) {
+        supabase.functions.invoke("interview-session", {
+          body: {
+            action: "violation",
+            interviewId,
+            violationType,
+            description: reason,
+            count: next,
+          },
+        }).then(() => {});
+      }
       return next;
     });
   }, [interviewId]);
@@ -325,19 +326,15 @@ export default function InterviewFlow() {
 
   // Start interview
   const startInterview = async () => {
-    // Mark link as used
-    await supabase.from("interview_links").update({ used: true }).eq("id", linkId);
+    const { data: started, error: startError } = await supabase.functions.invoke("interview-session", {
+      body: { action: "start", token },
+    });
 
-    // Create interview record
-    const { data: interview } = await supabase.from("interviews").insert({
-      link_id: linkId,
-      candidate_name: candidateName,
-      candidate_email: candidateEmail,
-      status: "in_progress" as const,
-      started_at: new Date().toISOString(),
-    }).select("id").single();
-
-    if (!interview) { toast({ title: "Error starting interview", variant: "destructive" }); return; }
+    if (startError || !started?.interviewId) {
+      toast({ title: "Error starting interview", variant: "destructive" });
+      return;
+    }
+    const interview = { id: started.interviewId as string };
     setInterviewId(interview.id);
 
     // Generate questions via edge function
