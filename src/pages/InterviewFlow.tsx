@@ -89,24 +89,21 @@ export default function InterviewFlow() {
   }, [token]);
 
   const loadLink = async () => {
-    const { data: link } = await supabase
-      .from("interview_links")
-      .select("*, job_roles(*)")
-      .eq("token", token!)
-      .single();
+    const { data, error } = await supabase.functions.invoke("interview-session", {
+      body: { action: "load", token },
+    });
 
-    if (!link) { setPhase("expired"); return; }
-    if (link.used || new Date(link.expires_at) < new Date()) { setPhase("expired"); return; }
+    if (error || !data?.valid) { setPhase("expired"); return; }
 
-    const job = (link as any).job_roles;
-    setLinkId(link.id);
+    const job = data.job;
+    setLinkId(data.linkId);
     setJobTitle(job.title);
     setJobDescription(job.description);
     setJobSkills(job.required_skills || []);
     setQuestionCount(job.question_count);
     setTimePerQuestion(job.time_per_question);
-    setCandidateName(link.candidate_name || "");
-    setCandidateEmail(link.candidate_email || "");
+    setCandidateName(data.candidateName || "");
+    setCandidateEmail(data.candidateEmail || "");
     setPhase("welcome");
   };
 
