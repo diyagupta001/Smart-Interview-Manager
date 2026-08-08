@@ -386,12 +386,14 @@ export default function InterviewFlow() {
 
     const q = questions[currentQ];
     if (q && interviewId) {
-      // Save answer
-      await supabase.from("interview_answers").insert({
-        question_id: q.id,
-        interview_id: interviewId,
-        answer_text: answer || "(No answer provided)",
-        time_taken_seconds: timePerQuestion - timeLeft,
+      await supabase.functions.invoke("interview-session", {
+        body: {
+          action: "answer",
+          interviewId,
+          questionId: q.id,
+          answerText: answer || "(No answer provided)",
+          timeTakenSeconds: timePerQuestion - timeLeft,
+        },
       });
     }
 
@@ -408,12 +410,16 @@ export default function InterviewFlow() {
   };
 
   const autoSubmit = async () => {
-    await supabase.from("interviews").update({ status: "auto_submitted" as const, completed_at: new Date().toISOString() }).eq("id", interviewId);
+    await supabase.functions.invoke("interview-session", {
+      body: { action: "complete", interviewId, status: "auto_submitted" },
+    });
     evaluateInterview();
   };
 
   const finishInterview = async () => {
-    await supabase.from("interviews").update({ status: "completed" as const, completed_at: new Date().toISOString() }).eq("id", interviewId);
+    await supabase.functions.invoke("interview-session", {
+      body: { action: "complete", interviewId, status: "completed" },
+    });
     evaluateInterview();
   };
 
