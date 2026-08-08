@@ -14,6 +14,7 @@ import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import DashboardOverview from "./pages/dashboard/DashboardOverview";
 import JobRoles from "./pages/dashboard/JobRoles";
 import Candidates from "./pages/dashboard/Candidates";
+import Invitations from "./pages/dashboard/Invitations";
 import CandidateReport from "./pages/dashboard/CandidateReport";
 import InterviewFlow from "./pages/InterviewFlow";
 import NotFound from "./pages/NotFound";
@@ -37,6 +38,7 @@ const App = () => (
               <Route index element={<DashboardOverview />} />
               <Route path="jobs" element={<JobRoles />} />
               <Route path="candidates" element={<Candidates />} />
+              <Route path="invitations" element={<Invitations />} />
               <Route path="candidates/:id" element={<CandidateReport />} />
             </Route>
             <Route path="/interview/:token" element={<InterviewFlow />} />
