@@ -18,7 +18,7 @@ export default function Landing() {
       <nav className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
           <Brain className="h-7 w-7 text-primary" />
-          <span className="text-xl font-bold tracking-tight">InterviewAI</span>
+          <span className="text-xl font-bold tracking-tight">Intervia</span>
         </div>
         <div className="flex items-center gap-3">
           <ThemeToggle />
@@ -116,7 +116,7 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} InterviewAI. Built with intelligence.</p>
+        <p>© {new Date().getFullYear()} Intervia. Built with intelligence.</p>
       </footer>
     </div>
   );
