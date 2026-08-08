@@ -89,24 +89,21 @@ export default function InterviewFlow() {
   }, [token]);
 
   const loadLink = async () => {
-    const { data: link } = await supabase
-      .from("interview_links")
-      .select("*, job_roles(*)")
-      .eq("token", token!)
-      .single();
+    const { data, error } = await supabase.functions.invoke("interview-session", {
+      body: { action: "load", token },
+    });
 
-    if (!link) { setPhase("expired"); return; }
-    if (link.used || new Date(link.expires_at) < new Date()) { setPhase("expired"); return; }
+    if (error || !data?.valid) { setPhase("expired"); return; }
 
-    const job = (link as any).job_roles;
-    setLinkId(link.id);
+    const job = data.job;
+    setLinkId(data.linkId);
     setJobTitle(job.title);
     setJobDescription(job.description);
     setJobSkills(job.required_skills || []);
     setQuestionCount(job.question_count);
     setTimePerQuestion(job.time_per_question);
-    setCandidateName(link.candidate_name || "");
-    setCandidateEmail(link.candidate_email || "");
+    setCandidateName(data.candidateName || "");
+    setCandidateEmail(data.candidateEmail || "");
     setPhase("welcome");
   };
 
@@ -161,15 +158,6 @@ export default function InterviewFlow() {
   const registerViolation = useCallback((reason: string) => {
     const violationType = getViolationType(reason);
 
-    // Log violation to database
-    if (interviewId) {
-      supabase.from("interview_violations").insert({
-        interview_id: interviewId,
-        violation_type: violationType,
-        description: reason,
-      }).then(() => {});
-    }
-
     setTabWarnings(prev => {
       const next = prev + 1;
       if (next >= 3) {
@@ -178,7 +166,17 @@ export default function InterviewFlow() {
       } else {
         toast({ title: `⚠️ Warning ${next}/3`, description: `${reason}. This activity is being monitored.`, variant: "destructive" });
       }
-      supabase.from("interviews").update({ tab_switch_count: next, flagged: next >= 2 }).eq("id", interviewId).then(() => {});
+      if (interviewId) {
+        supabase.functions.invoke("interview-session", {
+          body: {
+            action: "violation",
+            interviewId,
+            violationType,
+            description: reason,
+            count: next,
+          },
+        }).then(() => {});
+      }
       return next;
     });
   }, [interviewId]);
@@ -328,19 +326,15 @@ export default function InterviewFlow() {
 
   // Start interview
   const startInterview = async () => {
-    // Mark link as used
-    await supabase.from("interview_links").update({ used: true }).eq("id", linkId);
+    const { data: started, error: startError } = await supabase.functions.invoke("interview-session", {
+      body: { action: "start", token },
+    });
 
-    // Create interview record
-    const { data: interview } = await supabase.from("interviews").insert({
-      link_id: linkId,
-      candidate_name: candidateName,
-      candidate_email: candidateEmail,
-      status: "in_progress" as const,
-      started_at: new Date().toISOString(),
-    }).select("id").single();
-
-    if (!interview) { toast({ title: "Error starting interview", variant: "destructive" }); return; }
+    if (startError || !started?.interviewId) {
+      toast({ title: "Error starting interview", variant: "destructive" });
+      return;
+    }
+    const interview = { id: started.interviewId as string };
     setInterviewId(interview.id);
 
     // Generate questions via edge function
@@ -392,12 +386,14 @@ export default function InterviewFlow() {
 
     const q = questions[currentQ];
     if (q && interviewId) {
-      // Save answer
-      await supabase.from("interview_answers").insert({
-        question_id: q.id,
-        interview_id: interviewId,
-        answer_text: answer || "(No answer provided)",
-        time_taken_seconds: timePerQuestion - timeLeft,
+      await supabase.functions.invoke("interview-session", {
+        body: {
+          action: "answer",
+          interviewId,
+          questionId: q.id,
+          answerText: answer || "(No answer provided)",
+          timeTakenSeconds: timePerQuestion - timeLeft,
+        },
       });
     }
 
@@ -414,12 +410,16 @@ export default function InterviewFlow() {
   };
 
   const autoSubmit = async () => {
-    await supabase.from("interviews").update({ status: "auto_submitted" as const, completed_at: new Date().toISOString() }).eq("id", interviewId);
+    await supabase.functions.invoke("interview-session", {
+      body: { action: "complete", interviewId, status: "auto_submitted" },
+    });
     evaluateInterview();
   };
 
   const finishInterview = async () => {
-    await supabase.from("interviews").update({ status: "completed" as const, completed_at: new Date().toISOString() }).eq("id", interviewId);
+    await supabase.functions.invoke("interview-session", {
+      body: { action: "complete", interviewId, status: "completed" },
+    });
     evaluateInterview();
   };
 
