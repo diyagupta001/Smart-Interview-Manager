@@ -124,7 +124,7 @@ export default function JobRoles() {
       candidate_email: candidateEmail,
       expires_at,
       created_by: user.id,
-    }).select("token").single();
+    }).select("id, token").single();
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -264,10 +264,20 @@ The Intervia Hiring Team`;
         );
 
         setEmailSent(true);
+        await supabase.from("interview_links").update({
+          email_status: "sent",
+          email_sent_at: new Date().toISOString(),
+          email_error: null,
+        }).eq("id", data.id);
         toast({ title: "✅ Email sent successfully!", description: `Interview invitation delivered to ${candidateEmail.trim()}` });
       } catch (emailErr: any) {
         console.error("Email send error:", emailErr);
         const msg = emailErr?.text || emailErr?.message || "Could not send email. You can copy the link manually.";
+        await supabase.from("interview_links").update({
+          email_status: "failed",
+          email_sent_at: new Date().toISOString(),
+          email_error: String(msg).slice(0, 500),
+        }).eq("id", data.id);
         toast({ title: "Link generated but email failed", description: msg, variant: "destructive" });
       }
     }
