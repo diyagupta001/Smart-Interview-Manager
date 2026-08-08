@@ -174,7 +174,7 @@ ${trackedLink}
 4. Answer each question within the allotted time.
 
 Best of luck!
-The Hiring Team`;
+The Intervia Hiring Team`;
 
         // Minimal, professional HTML email (white bg, subtle borders, single accent)
         const ACCENT = "#0f172a"; // slate-900 — swap to your brand hex if desired
@@ -185,7 +185,7 @@ The Hiring Team`;
     <tr><td align="center">
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
         <tr><td style="padding:28px 32px 20px 32px;border-bottom:1px solid #f1f5f9;">
-          <div style="font-size:13px;letter-spacing:.08em;color:#64748b;text-transform:uppercase;font-weight:600;">The Hiring Team</div>
+          <div style="font-size:13px;letter-spacing:.08em;color:#64748b;text-transform:uppercase;font-weight:600;">The Intervia Hiring Team</div>
           <h1 style="margin:8px 0 0 0;font-size:22px;line-height:1.3;color:#0f172a;font-weight:700;">You're invited to interview</h1>
         </td></tr>
         <tr><td style="padding:24px 32px 8px 32px;">
@@ -227,7 +227,7 @@ The Hiring Team`;
           </ul>
         </td></tr>
         <tr><td style="padding:18px 32px;background:#f8fafc;border-top:1px solid #f1f5f9;">
-          <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">Best of luck! — The Hiring Team</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">Best of luck! — The Intervia Hiring Team</p>
         </td></tr>
       </table>
       <p style="font-size:11px;color:#94a3b8;margin:16px 0 0 0;">If you didn't expect this email, you can safely ignore it.</p>
@@ -245,7 +245,7 @@ The Hiring Team`;
             email: candidateEmail.trim(),
             to_name: candidateDisplayName,
             candidate_name: candidateDisplayName,
-            from_name: "Hiring Team",
+            from_name: "Intervia",
             subject: `Interview Invitation — ${roleTitle}`,
             job_title: selectedJob?.title || "Interview",
             job_description: selectedJob?.description || "",
