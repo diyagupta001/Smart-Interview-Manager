@@ -3,13 +3,14 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { Brain, LayoutDashboard, Briefcase, Users, LogOut, Menu, X } from "lucide-react";
+import { Brain, LayoutDashboard, Briefcase, Users, Send, LogOut, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Overview" },
   { to: "/dashboard/jobs", icon: Briefcase, label: "Job Roles" },
   { to: "/dashboard/candidates", icon: Users, label: "Candidates" },
+  { to: "/dashboard/invitations", icon: Send, label: "Invitations" },
 ];
 
 export default function DashboardLayout() {
