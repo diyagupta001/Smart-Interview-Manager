@@ -3,13 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
-    <title>Intervia — AI-Powered Interview</title>
-    <meta name="description" content="Hire smarter with AI-powered interviews. Create job roles, generate unique interview links, and let AI evaluate candidates automatically." />
+    <title>Intervia — AI-Powered Interview & Assessment Platform</title>
+    <meta name="description" content="Intervia is an AI-powered interview and assessment platform. Create roles, send secure interview links, and get instant proctored scorecards." />
     <meta name="author" content="Intervia" />
 
-    <meta property="og:title" content="Intervia — AI-Powered Interview" />
-    <meta property="og:description" content="Hire smarter with AI-powered interviews. Automatic scoring, anti-cheating, and instant results." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var dark = stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+        window.addEventListener("DOMContentLoaded", function () {
+          requestAnimationFrame(function () {
+            document.documentElement.classList.add("theme-ready");
+          });
+        });
+      })();
+    </script>
+
+    <meta property="og:title" content="Intervia — AI-Powered Interview & Assessment Platform" />
+    <meta property="og:description" content="AI-powered interviews with proctoring, adaptive questions, and instant scorecards." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
