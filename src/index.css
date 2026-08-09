@@ -4,95 +4,123 @@
 
 @layer base {
   :root {
-    --background: 40 38% 96%;
-    --foreground: 28 25% 16%;
+    /* Emerald Intelligence — light */
+    --background: 84 24% 96%;
+    --foreground: 152 19% 14%;
 
-    --card: 42 50% 98%;
-    --card-foreground: 28 25% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 152 19% 14%;
 
-    --popover: 42 50% 98%;
-    --popover-foreground: 28 25% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 152 19% 14%;
 
-    --primary: 24 42% 42%;
-    --primary-foreground: 40 45% 97%;
+    --primary: 159 65% 25%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 38 32% 91%;
-    --secondary-foreground: 28 25% 22%;
+    --secondary: 144 23% 88%;
+    --secondary-foreground: 159 65% 22%;
 
-    --muted: 38 28% 92%;
-    --muted-foreground: 30 12% 44%;
+    --muted: 137 20% 93%;
+    --muted-foreground: 148 6% 43%;
 
-    --accent: 22 62% 58%;
-    --accent-foreground: 40 45% 97%;
+    --accent: 157 39% 39%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 6 62% 48%;
-    --destructive-foreground: 40 45% 97%;
+    --sage: 144 23% 72%;
+    --sage-foreground: 159 65% 20%;
 
-    --success: 142 40% 40%;
-    --success-foreground: 40 45% 97%;
+    --destructive: 4 62% 48%;
+    --destructive-foreground: 0 0% 100%;
 
-    --warning: 34 78% 52%;
-    --warning-foreground: 28 30% 15%;
+    --success: 157 39% 39%;
+    --success-foreground: 0 0% 100%;
 
-    --border: 36 22% 86%;
-    --input: 36 22% 86%;
-    --ring: 24 42% 42%;
+    --warning: 34 74% 46%;
+    --warning-foreground: 0 0% 100%;
 
-    --radius: 0.625rem;
+    --border: 133 15% 88%;
+    --input: 133 15% 88%;
+    --ring: 159 65% 25%;
 
-    --sidebar-background: 40 34% 94%;
-    --sidebar-foreground: 30 18% 32%;
-    --sidebar-primary: 24 42% 42%;
-    --sidebar-primary-foreground: 40 45% 97%;
-    --sidebar-accent: 38 30% 89%;
-    --sidebar-accent-foreground: 28 25% 20%;
-    --sidebar-border: 36 22% 86%;
-    --sidebar-ring: 24 42% 42%;
+    --radius: 0.875rem;
+
+    --chart-1: 159 65% 25%;
+    --chart-2: 157 39% 39%;
+    --chart-3: 144 23% 62%;
+    --chart-4: 148 12% 55%;
+    --chart-5: 137 20% 80%;
+
+    --gradient-emerald: linear-gradient(135deg, hsl(159 65% 25%), hsl(157 39% 39%));
+    --shadow-soft: 0 1px 2px hsl(152 19% 14% / 0.04), 0 8px 24px -12px hsl(159 65% 25% / 0.18);
+    --shadow-lift: 0 2px 4px hsl(152 19% 14% / 0.05), 0 18px 40px -18px hsl(159 65% 25% / 0.28);
+
+    --sidebar-background: 137 20% 93%;
+    --sidebar-foreground: 148 6% 40%;
+    --sidebar-primary: 159 65% 25%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 137 20% 89%;
+    --sidebar-accent-foreground: 159 65% 22%;
+    --sidebar-border: 133 15% 88%;
+    --sidebar-ring: 159 65% 25%;
   }
 
   .dark {
-    --background: 26 16% 9%;
-    --foreground: 38 26% 90%;
+    /* Emerald Intelligence — midnight forest */
+    --background: 156 38% 5%;
+    --foreground: 132 20% 95%;
 
-    --card: 26 15% 12%;
-    --card-foreground: 38 26% 90%;
+    --card: 154 32% 9%;
+    --card-foreground: 132 20% 95%;
 
-    --popover: 26 15% 12%;
-    --popover-foreground: 38 26% 90%;
+    --popover: 154 32% 9%;
+    --popover-foreground: 132 20% 95%;
 
-    --primary: 28 55% 62%;
-    --primary-foreground: 26 20% 12%;
+    --primary: 150 39% 49%;
+    --primary-foreground: 156 38% 6%;
 
-    --secondary: 26 13% 17%;
-    --secondary-foreground: 38 22% 85%;
+    --secondary: 150 24% 16%;
+    --secondary-foreground: 143 37% 74%;
 
-    --muted: 26 13% 17%;
-    --muted-foreground: 34 12% 62%;
+    --muted: 150 24% 14%;
+    --muted-foreground: 147 11% 64%;
 
-    --accent: 20 62% 60%;
-    --accent-foreground: 26 20% 12%;
+    --accent: 149 29% 56%;
+    --accent-foreground: 156 38% 6%;
 
-    --destructive: 6 56% 50%;
-    --destructive-foreground: 40 40% 95%;
+    --sage: 143 37% 74%;
+    --sage-foreground: 156 38% 6%;
 
-    --success: 142 36% 46%;
-    --success-foreground: 26 20% 12%;
+    --destructive: 4 58% 48%;
+    --destructive-foreground: 132 20% 95%;
 
-    --warning: 36 72% 58%;
-    --warning-foreground: 26 20% 12%;
+    --success: 150 39% 49%;
+    --success-foreground: 156 38% 6%;
 
-    --border: 28 12% 21%;
-    --input: 28 12% 21%;
-    --ring: 28 55% 62%;
+    --warning: 36 70% 56%;
+    --warning-foreground: 156 38% 6%;
 
-    --sidebar-background: 26 16% 10%;
-    --sidebar-foreground: 38 22% 85%;
-    --sidebar-primary: 28 55% 62%;
-    --sidebar-primary-foreground: 26 20% 12%;
-    --sidebar-accent: 26 13% 15%;
-    --sidebar-accent-foreground: 38 22% 85%;
-    --sidebar-border: 28 12% 21%;
-    --sidebar-ring: 28 55% 62%;
+    --border: 150 24% 16%;
+    --input: 150 24% 16%;
+    --ring: 150 39% 49%;
+
+    --chart-1: 150 39% 49%;
+    --chart-2: 149 29% 56%;
+    --chart-3: 143 37% 74%;
+    --chart-4: 147 11% 64%;
+    --chart-5: 150 24% 30%;
+
+    --gradient-emerald: linear-gradient(135deg, hsl(150 39% 49%), hsl(149 29% 56%));
+    --shadow-soft: 0 1px 2px hsl(156 38% 2% / 0.5), 0 8px 24px -12px hsl(156 38% 2% / 0.7);
+    --shadow-lift: 0 2px 6px hsl(156 38% 2% / 0.55), 0 20px 44px -20px hsl(156 38% 2% / 0.8);
+
+    --sidebar-background: 154 32% 7%;
+    --sidebar-foreground: 147 11% 64%;
+    --sidebar-primary: 150 39% 49%;
+    --sidebar-primary-foreground: 156 38% 6%;
+    --sidebar-accent: 150 24% 13%;
+    --sidebar-accent-foreground: 143 37% 74%;
+    --sidebar-border: 150 24% 16%;
+    --sidebar-ring: 150 39% 49%;
   }
 }
 
@@ -103,12 +131,36 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  }
+
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+
+  /* Smooth, flash-free theme transition */
+  html.theme-ready body,
+  html.theme-ready body * {
+    transition: background-color 220ms ease, border-color 220ms ease, color 220ms ease,
+      fill 220ms ease, stroke 220ms ease;
   }
 }
 
 @layer utilities {
   .glass {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    @apply bg-card/80 backdrop-blur-xl border border-border/60;
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .shadow-lift {
+    box-shadow: var(--shadow-lift);
+  }
+  .bg-gradient-emerald {
+    background-image: var(--gradient-emerald);
   }
 }

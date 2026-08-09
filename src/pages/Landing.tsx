@@ -40,7 +40,7 @@ export default function Landing() {
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm text-primary mb-6">
             <Zap className="h-3.5 w-3.5" />
-            AI-Powered Interview Platform
+            AI-Powered Interview & Assessment Platform
           </div>
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight leading-tight mb-6">
             Hire Smarter with
