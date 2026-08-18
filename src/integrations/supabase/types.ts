@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       interview_answers: {
         Row: {
+          ai_evaluation: Json
           answer_text: string
           created_at: string
           id: string
@@ -24,6 +25,7 @@ export type Database = {
           time_taken_seconds: number
         }
         Insert: {
+          ai_evaluation?: Json
           answer_text?: string
           created_at?: string
           id?: string
@@ -32,6 +34,7 @@ export type Database = {
           time_taken_seconds?: number
         }
         Update: {
+          ai_evaluation?: Json
           answer_text?: string
           created_at?: string
           id?: string
@@ -121,27 +124,33 @@ export type Database = {
           difficulty: Database["public"]["Enums"]["difficulty_level"]
           id: string
           interview_id: string
+          is_followup: boolean
           question_order: number
           question_text: string
           question_type: Database["public"]["Enums"]["question_type"]
+          topic: string
         }
         Insert: {
           created_at?: string
           difficulty?: Database["public"]["Enums"]["difficulty_level"]
           id?: string
           interview_id: string
+          is_followup?: boolean
           question_order?: number
           question_text: string
           question_type?: Database["public"]["Enums"]["question_type"]
+          topic?: string
         }
         Update: {
           created_at?: string
           difficulty?: Database["public"]["Enums"]["difficulty_level"]
           id?: string
           interview_id?: string
+          is_followup?: boolean
           question_order?: number
           question_text?: string
           question_type?: Database["public"]["Enums"]["question_type"]
+          topic?: string
         }
         Relationships: [
           {
@@ -162,8 +171,11 @@ export type Database = {
           debug_details: Json
           decision: Database["public"]["Enums"]["interview_decision"]
           id: string
+          improvement_plan: Json
           interview_id: string
           overall_rating: number
+          problem_solving_score: number
+          resume_skill_analysis: Json
           technical_score: number
         }
         Insert: {
@@ -174,8 +186,11 @@ export type Database = {
           debug_details?: Json
           decision?: Database["public"]["Enums"]["interview_decision"]
           id?: string
+          improvement_plan?: Json
           interview_id: string
           overall_rating?: number
+          problem_solving_score?: number
+          resume_skill_analysis?: Json
           technical_score?: number
         }
         Update: {
@@ -186,8 +201,11 @@ export type Database = {
           debug_details?: Json
           decision?: Database["public"]["Enums"]["interview_decision"]
           id?: string
+          improvement_plan?: Json
           interview_id?: string
           overall_rating?: number
+          problem_solving_score?: number
+          resume_skill_analysis?: Json
           technical_score?: number
         }
         Relationships: [
@@ -234,39 +252,51 @@ export type Database = {
       }
       interviews: {
         Row: {
+          adaptive_state: Json
           candidate_email: string | null
           candidate_name: string
           completed_at: string | null
+          config: Json
           created_at: string
           flagged: boolean
           id: string
+          interview_mode: string
           link_id: string
+          resume_data: Json
           started_at: string | null
           status: Database["public"]["Enums"]["interview_status"]
           tab_switch_count: number
           updated_at: string
         }
         Insert: {
+          adaptive_state?: Json
           candidate_email?: string | null
           candidate_name?: string
           completed_at?: string | null
+          config?: Json
           created_at?: string
           flagged?: boolean
           id?: string
+          interview_mode?: string
           link_id: string
+          resume_data?: Json
           started_at?: string | null
           status?: Database["public"]["Enums"]["interview_status"]
           tab_switch_count?: number
           updated_at?: string
         }
         Update: {
+          adaptive_state?: Json
           candidate_email?: string | null
           candidate_name?: string
           completed_at?: string | null
+          config?: Json
           created_at?: string
           flagged?: boolean
           id?: string
+          interview_mode?: string
           link_id?: string
+          resume_data?: Json
           started_at?: string | null
           status?: Database["public"]["Enums"]["interview_status"]
           tab_switch_count?: number
