@@ -461,8 +461,76 @@ The Intervia Hiring Team`;
               <Switch id="send-email" checked={sendEmail} onCheckedChange={setSendEmail} />
             </div>
 
+            {/* Resume-based interview setup */}
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="flex items-start gap-2">
+                <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div>
+                  <Label>Resume-based interview (optional)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Upload the candidate's resume (PDF or TXT) to personalise the AI questions.
+                  </p>
+                </div>
+              </div>
+
+              {!resumeData ? (
+                <div className="space-y-2">
+                  <Input
+                    id="resume-upload"
+                    type="file"
+                    accept=".pdf,.txt,.md,application/pdf,text/plain"
+                    disabled={parsingResume}
+                    onChange={e => handleResumeUpload(e.target.files?.[0])}
+                    className="cursor-pointer file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
+                  />
+                  {parsingResume && (
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Analysing {resumeFileName}…
+                    </p>
+                  )}
+                  {!parsingResume && (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Upload className="h-3 w-3" /> No resume attached — a standard role-based interview will be used.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 rounded-md bg-muted p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1 text-sm font-medium">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        {resumeData.candidate_name || "Resume analysed"}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">{resumeFileName}</p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={clearResume}><X className="h-3 w-3" /></Button>
+                  </div>
+                  {resumeData.headline && <p className="text-xs text-muted-foreground">{resumeData.headline}</p>}
+                  {resumeData.years_experience && (
+                    <p className="text-xs text-muted-foreground">Experience: {resumeData.years_experience}</p>
+                  )}
+                  {Array.isArray(resumeData.skills) && resumeData.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {resumeData.skills.slice(0, 8).map((s: string) => (
+                        <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                      ))}
+                      {resumeData.skills.length > 8 && (
+                        <Badge variant="outline" className="text-xs">+{resumeData.skills.length - 8}</Badge>
+                      )}
+                    </div>
+                  )}
+                  {Array.isArray(resumeData.projects) && resumeData.projects.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {resumeData.projects.length} project{resumeData.projects.length > 1 ? "s" : ""} detected — questions will reference them.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {!generatedLink ? (
-              <Button onClick={generateLink} disabled={generatingLink} className="w-full gap-2">
+              <Button onClick={generateLink} disabled={generatingLink || parsingResume} className="w-full gap-2">
                 {generatingLink && <Loader2 className="h-4 w-4 animate-spin" />}
                 {sendEmail ? <><Mail className="h-4 w-4" /> Generate & Send Link</> : "Generate Link"}
               </Button>
