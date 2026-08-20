@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       if (!isToken(token)) return null;
       const { data } = await supabase
         .from("interview_links")
-        .select("id, expires_at, used, candidate_name, candidate_email, job_roles(*)")
+        .select("id, expires_at, used, candidate_name, candidate_email, resume_data, interview_mode, job_roles(*)")
         .eq("token", token)
         .maybeSingle();
       return data;
@@ -70,6 +70,8 @@ Deno.serve(async (req) => {
         linkId: link.id,
         candidateName: link.candidate_name || "",
         candidateEmail: link.candidate_email || "",
+        interviewMode: (link as any).interview_mode || "standard",
+        hasResume: !!((link as any).resume_data && Object.keys((link as any).resume_data).length > 0),
         job: {
           title: job?.title ?? "",
           description: job?.description ?? "",
@@ -97,6 +99,8 @@ Deno.serve(async (req) => {
           candidate_email: link.candidate_email || "",
           status: "in_progress",
           started_at: new Date().toISOString(),
+          interview_mode: (link as any).interview_mode || "standard",
+          resume_data: (link as any).resume_data || {},
         })
         .select("id")
         .single();

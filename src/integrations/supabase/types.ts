@@ -71,8 +71,10 @@ export type Database = {
           email_status: string
           expires_at: string
           id: string
+          interview_mode: string
           job_role_id: string
           link_clicked_at: string | null
+          resume_data: Json
           token: string
           used: boolean
         }
@@ -87,8 +89,10 @@ export type Database = {
           email_status?: string
           expires_at: string
           id?: string
+          interview_mode?: string
           job_role_id: string
           link_clicked_at?: string | null
+          resume_data?: Json
           token?: string
           used?: boolean
         }
@@ -103,8 +107,10 @@ export type Database = {
           email_status?: string
           expires_at?: string
           id?: string
+          interview_mode?: string
           job_role_id?: string
           link_clicked_at?: string | null
+          resume_data?: Json
           token?: string
           used?: boolean
         }

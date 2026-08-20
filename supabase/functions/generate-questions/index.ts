@@ -20,10 +20,33 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const skillsList = (skills || []).join(", ");
+
+    // Pull any resume the HR team attached to this invitation
+    let resumeBlock = "";
+    if (interviewId) {
+      const { data: interviewRow } = await supabase
+        .from("interviews")
+        .select("resume_data, interview_mode")
+        .eq("id", interviewId)
+        .maybeSingle();
+      const resume = interviewRow?.resume_data;
+      if (resume && Object.keys(resume).length > 0) {
+        resumeBlock = `
+
+CANDIDATE RESUME (verified extract — never invent anything not listed here):
+${JSON.stringify(resume).slice(0, 12000)}
+
+Resume rules:
+- At least half the questions must reference concrete items from the resume (specific projects, employers, tools, certifications).
+- Probe depth on claimed skills; if a required job skill is missing from the resume, ask how they would approach it.
+- Never invent experience the resume does not mention.`;
+      }
+    }
+
     const systemPrompt = `You are an expert interviewer. Generate exactly ${questionCount || 8} interview questions for a ${jobTitle} position.
 
 Job Description: ${jobDescription || "Not provided"}
-Required Skills: ${skillsList || "General"}
+Required Skills: ${skillsList || "General"}${resumeBlock}
 
 Rules:
 - Mix question types: technical (about skills/knowledge), hr (behavioral/cultural), scenario (situational problem-solving)
