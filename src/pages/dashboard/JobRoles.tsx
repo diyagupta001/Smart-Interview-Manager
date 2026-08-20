@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Copy, Link as LinkIcon, Loader2, Search, Mail } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Link as LinkIcon, Loader2, Search, Mail, FileText, Upload, X, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import emailjs from "@emailjs/browser";
 import type { Database } from "@/integrations/supabase/types";
@@ -51,6 +51,11 @@ export default function JobRoles() {
   const [generatedLink, setGeneratedLink] = useState("");
   const [generatingLink, setGeneratingLink] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+
+  // Resume-based interview setup
+  const [resumeFileName, setResumeFileName] = useState("");
+  const [resumeData, setResumeData] = useState<any | null>(null);
+  const [parsingResume, setParsingResume] = useState(false);
 
   useEffect(() => { loadJobs(); }, [user]);
 
@@ -103,8 +108,59 @@ export default function JobRoles() {
   const openLinkDialog = (jobId: string) => {
     setSelectedJobId(jobId);
     setCandidateName(""); setCandidateEmail(""); setGeneratedLink(""); setExpiry("24h"); setSendEmail(true); setEmailSent(false);
+    setResumeFileName(""); setResumeData(null); setParsingResume(false);
     setLinkDialogOpen(true);
   };
+
+  const fileToBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleResumeUpload = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please upload a resume under 10 MB.", variant: "destructive" });
+      return;
+    }
+    setResumeFileName(file.name);
+    setResumeData(null);
+    setParsingResume(true);
+    try {
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const payload: Record<string, unknown> = { fileName: file.name, mimeType: file.type };
+      if (isPdf) {
+        payload.fileBase64 = await fileToBase64(file);
+        payload.mimeType = "application/pdf";
+      } else {
+        payload.text = await file.text();
+      }
+
+      const { data, error } = await supabase.functions.invoke("parse-resume", { body: payload });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!data?.resume) throw new Error("No resume details could be extracted.");
+
+      setResumeData(data.resume);
+      if (!candidateName.trim() && data.resume.candidate_name) setCandidateName(data.resume.candidate_name);
+      toast({ title: "Resume analysed", description: "Questions will be personalised to this resume." });
+    } catch (err: any) {
+      console.error("Resume parse error:", err);
+      setResumeFileName("");
+      toast({
+        title: "Couldn't analyse resume",
+        description: err?.message || "Please try a text-based PDF or TXT file.",
+        variant: "destructive",
+      });
+    } finally {
+      setParsingResume(false);
+    }
+  };
+
+  const clearResume = () => { setResumeFileName(""); setResumeData(null); };
 
   const generateLink = async () => {
     if (!user || !selectedJobId) return;
@@ -124,6 +180,8 @@ export default function JobRoles() {
       candidate_email: candidateEmail,
       expires_at,
       created_by: user.id,
+      resume_data: resumeData ?? {},
+      interview_mode: resumeData ? "resume_based" : "standard",
     }).select("id, token").single();
 
     if (error) {
