@@ -141,6 +141,42 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resume an in-progress interview after a page refresh (keeps the language).
+    if (action === "session") {
+      if (!isUuid(body.interviewId)) return json({ active: false });
+      const { data: interview } = await supabase
+        .from("interviews")
+        .select("id, status, interview_language, answer_language, candidate_name, candidate_email, tab_switch_count")
+        .eq("id", body.interviewId)
+        .maybeSingle();
+      if (!interview || (interview.status !== "in_progress" && interview.status !== "pending")) {
+        return json({ active: false });
+      }
+
+      const { data: questions } = await supabase
+        .from("interview_questions")
+        .select("id, question_text, question_type, difficulty, question_order")
+        .eq("interview_id", interview.id)
+        .order("question_order");
+
+      const { data: answers } = await supabase
+        .from("interview_answers")
+        .select("question_id")
+        .eq("interview_id", interview.id);
+
+      return json({
+        active: true,
+        interviewId: interview.id,
+        language: interview.interview_language || "en",
+        answerLanguage: interview.answer_language || "same",
+        candidateName: interview.candidate_name || "",
+        candidateEmail: interview.candidate_email || "",
+        tabSwitchCount: interview.tab_switch_count || 0,
+        questions: questions || [],
+        answeredCount: (answers || []).length,
+      });
+    }
+
     if (action === "answer") {
       const interview = await activeInterview(body.interviewId);
       if (!interview) return json({ error: "Invalid interview" }, 403);
