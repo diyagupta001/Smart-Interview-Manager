@@ -23,6 +23,19 @@ const isToken = (v: unknown) =>
 const str = (v: unknown, max: number) =>
   typeof v === "string" ? v.slice(0, max) : "";
 
+const SUPPORTED_LANGUAGES = [
+  "en", "hi", "pa", "hr-haryanvi", "bn", "mr", "gu", "ta", "te", "kn", "ml",
+  "ur", "or", "as", "es", "fr", "de", "ar",
+];
+const normaliseLanguage = (v: unknown) => {
+  const code = str(v, 24);
+  return SUPPORTED_LANGUAGES.includes(code) ? code : "en";
+};
+const normaliseAnswerLanguage = (v: unknown) => {
+  const code = str(v, 24);
+  return code === "english" || code === "both" ? code : "same";
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
