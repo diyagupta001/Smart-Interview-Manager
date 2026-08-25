@@ -61,6 +61,7 @@ export type Database = {
       }
       interview_links: {
         Row: {
+          available_languages: string[]
           candidate_email: string | null
           candidate_name: string | null
           created_at: string
@@ -79,6 +80,7 @@ export type Database = {
           used: boolean
         }
         Insert: {
+          available_languages?: string[]
           candidate_email?: string | null
           candidate_name?: string | null
           created_at?: string
@@ -97,6 +99,7 @@ export type Database = {
           used?: boolean
         }
         Update: {
+          available_languages?: string[]
           candidate_email?: string | null
           candidate_name?: string | null
           created_at?: string
@@ -259,6 +262,7 @@ export type Database = {
       interviews: {
         Row: {
           adaptive_state: Json
+          answer_language: string
           candidate_email: string | null
           candidate_name: string
           completed_at: string | null
@@ -266,6 +270,7 @@ export type Database = {
           created_at: string
           flagged: boolean
           id: string
+          interview_language: string
           interview_mode: string
           link_id: string
           resume_data: Json
@@ -276,6 +281,7 @@ export type Database = {
         }
         Insert: {
           adaptive_state?: Json
+          answer_language?: string
           candidate_email?: string | null
           candidate_name?: string
           completed_at?: string | null
@@ -283,6 +289,7 @@ export type Database = {
           created_at?: string
           flagged?: boolean
           id?: string
+          interview_language?: string
           interview_mode?: string
           link_id: string
           resume_data?: Json
@@ -293,6 +300,7 @@ export type Database = {
         }
         Update: {
           adaptive_state?: Json
+          answer_language?: string
           candidate_email?: string | null
           candidate_name?: string
           completed_at?: string | null
@@ -300,6 +308,7 @@ export type Database = {
           created_at?: string
           flagged?: boolean
           id?: string
+          interview_language?: string
           interview_mode?: string
           link_id?: string
           resume_data?: Json

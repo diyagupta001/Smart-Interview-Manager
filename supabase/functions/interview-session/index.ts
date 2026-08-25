@@ -23,6 +23,19 @@ const isToken = (v: unknown) =>
 const str = (v: unknown, max: number) =>
   typeof v === "string" ? v.slice(0, max) : "";
 
+const SUPPORTED_LANGUAGES = [
+  "en", "hi", "pa", "hr-haryanvi", "bn", "mr", "gu", "ta", "te", "kn", "ml",
+  "ur", "or", "as", "es", "fr", "de", "ar",
+];
+const normaliseLanguage = (v: unknown) => {
+  const code = str(v, 24);
+  return SUPPORTED_LANGUAGES.includes(code) ? code : "en";
+};
+const normaliseAnswerLanguage = (v: unknown) => {
+  const code = str(v, 24);
+  return code === "english" || code === "both" ? code : "same";
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -40,7 +53,7 @@ Deno.serve(async (req) => {
       if (!isToken(token)) return null;
       const { data } = await supabase
         .from("interview_links")
-        .select("id, expires_at, used, candidate_name, candidate_email, resume_data, interview_mode, job_roles(*)")
+        .select("id, expires_at, used, candidate_name, candidate_email, resume_data, interview_mode, available_languages, job_roles(*)")
         .eq("token", token)
         .maybeSingle();
       return data;
@@ -72,6 +85,10 @@ Deno.serve(async (req) => {
         candidateEmail: link.candidate_email || "",
         interviewMode: (link as any).interview_mode || "standard",
         hasResume: !!((link as any).resume_data && Object.keys((link as any).resume_data).length > 0),
+        availableLanguages: (Array.isArray((link as any).available_languages) && (link as any).available_languages.length
+          ? (link as any).available_languages
+          : ["en"]
+        ).filter((c: unknown) => SUPPORTED_LANGUAGES.includes(String(c))),
         job: {
           title: job?.title ?? "",
           description: job?.description ?? "",
@@ -91,6 +108,15 @@ Deno.serve(async (req) => {
 
       await supabase.from("interview_links").update({ used: true }).eq("id", link.id);
 
+      // The candidate picks the interview language on the welcome screen; only a
+      // language the creator enabled for this link is accepted.
+      const allowed: string[] = (Array.isArray((link as any).available_languages) && (link as any).available_languages.length
+        ? (link as any).available_languages
+        : ["en"]).map((c: unknown) => String(c));
+      const requested = normaliseLanguage(body.language);
+      const interviewLanguage = allowed.includes(requested) ? requested : (allowed.find((c) => SUPPORTED_LANGUAGES.includes(c)) || "en");
+      const answerLanguage = normaliseAnswerLanguage(body.answerLanguage);
+
       const { data: interview, error } = await supabase
         .from("interviews")
         .insert({
@@ -101,12 +127,54 @@ Deno.serve(async (req) => {
           started_at: new Date().toISOString(),
           interview_mode: (link as any).interview_mode || "standard",
           resume_data: (link as any).resume_data || {},
+          interview_language: interviewLanguage,
+          answer_language: answerLanguage,
         })
-        .select("id")
+        .select("id, interview_language, answer_language")
         .single();
 
       if (error || !interview) return json({ error: "Could not start interview" }, 500);
-      return json({ interviewId: interview.id });
+      return json({
+        interviewId: interview.id,
+        language: interview.interview_language,
+        answerLanguage: interview.answer_language,
+      });
+    }
+
+    // Resume an in-progress interview after a page refresh (keeps the language).
+    if (action === "session") {
+      if (!isUuid(body.interviewId)) return json({ active: false });
+      const { data: interview } = await supabase
+        .from("interviews")
+        .select("id, status, interview_language, answer_language, candidate_name, candidate_email, tab_switch_count")
+        .eq("id", body.interviewId)
+        .maybeSingle();
+      if (!interview || (interview.status !== "in_progress" && interview.status !== "pending")) {
+        return json({ active: false });
+      }
+
+      const { data: questions } = await supabase
+        .from("interview_questions")
+        .select("id, question_text, question_type, difficulty, question_order")
+        .eq("interview_id", interview.id)
+        .order("question_order");
+
+      const { data: answers } = await supabase
+        .from("interview_answers")
+        .select("question_id")
+        .eq("interview_id", interview.id);
+
+      return json({
+        active: true,
+        interviewId: interview.id,
+        language: interview.interview_language || "en",
+        answerLanguage: interview.answer_language || "same",
+        candidateName: interview.candidate_name || "",
+        candidateEmail: interview.candidate_email || "",
+        tabSwitchCount: interview.tab_switch_count || 0,
+        questions: questions || [],
+        answeredCount: (answers || []).length,
+      });
     }
 
     if (action === "answer") {
