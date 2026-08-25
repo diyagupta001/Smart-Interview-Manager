@@ -127,12 +127,18 @@ Deno.serve(async (req) => {
           started_at: new Date().toISOString(),
           interview_mode: (link as any).interview_mode || "standard",
           resume_data: (link as any).resume_data || {},
+          interview_language: interviewLanguage,
+          answer_language: answerLanguage,
         })
-        .select("id")
+        .select("id, interview_language, answer_language")
         .single();
 
       if (error || !interview) return json({ error: "Could not start interview" }, 500);
-      return json({ interviewId: interview.id });
+      return json({
+        interviewId: interview.id,
+        language: interview.interview_language,
+        answerLanguage: interview.answer_language,
+      });
     }
 
     if (action === "answer") {
