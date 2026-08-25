@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       if (!isToken(token)) return null;
       const { data } = await supabase
         .from("interview_links")
-        .select("id, expires_at, used, candidate_name, candidate_email, resume_data, interview_mode, job_roles(*)")
+        .select("id, expires_at, used, candidate_name, candidate_email, resume_data, interview_mode, available_languages, job_roles(*)")
         .eq("token", token)
         .maybeSingle();
       return data;
@@ -85,6 +85,10 @@ Deno.serve(async (req) => {
         candidateEmail: link.candidate_email || "",
         interviewMode: (link as any).interview_mode || "standard",
         hasResume: !!((link as any).resume_data && Object.keys((link as any).resume_data).length > 0),
+        availableLanguages: (Array.isArray((link as any).available_languages) && (link as any).available_languages.length
+          ? (link as any).available_languages
+          : ["en"]
+        ).filter((c: unknown) => SUPPORTED_LANGUAGES.includes(String(c))),
         job: {
           title: job?.title ?? "",
           description: job?.description ?? "",
@@ -103,6 +107,15 @@ Deno.serve(async (req) => {
       }
 
       await supabase.from("interview_links").update({ used: true }).eq("id", link.id);
+
+      // The candidate picks the interview language on the welcome screen; only a
+      // language the creator enabled for this link is accepted.
+      const allowed: string[] = (Array.isArray((link as any).available_languages) && (link as any).available_languages.length
+        ? (link as any).available_languages
+        : ["en"]).map((c: unknown) => String(c));
+      const requested = normaliseLanguage(body.language);
+      const interviewLanguage = allowed.includes(requested) ? requested : (allowed.find((c) => SUPPORTED_LANGUAGES.includes(c)) || "en");
+      const answerLanguage = normaliseAnswerLanguage(body.answerLanguage);
 
       const { data: interview, error } = await supabase
         .from("interviews")
