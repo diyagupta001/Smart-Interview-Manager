@@ -386,7 +386,7 @@ export default function InterviewFlow() {
   // Start interview
   const startInterview = async () => {
     const { data: started, error: startError } = await supabase.functions.invoke("interview-session", {
-      body: { action: "start", token },
+      body: { action: "start", token, language, answerLanguage },
     });
 
     if (startError || !started?.interviewId) {
@@ -395,6 +395,9 @@ export default function InterviewFlow() {
     }
     const interview = { id: started.interviewId as string };
     setInterviewId(interview.id);
+    setLanguage(started.language || language);
+    setAnswerLanguage((started.answerLanguage as AnswerLanguageOption) || answerLanguage);
+    try { localStorage.setItem(sessionKey, interview.id); } catch { /* storage unavailable */ }
 
     // Generate questions via edge function
     setPhase("loading");
