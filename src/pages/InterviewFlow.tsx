@@ -403,7 +403,7 @@ export default function InterviewFlow() {
     setPhase("loading");
     try {
       const { data, error } = await supabase.functions.invoke("generate-questions", {
-        body: { interviewId: interview.id, jobTitle, jobDescription, skills: jobSkills, questionCount, difficulty: "adaptive" },
+        body: { interviewId: interview.id, jobTitle, jobDescription, skills: jobSkills, questionCount, difficulty: "adaptive", language: started.language || language },
       });
 
       if (error) throw error;
