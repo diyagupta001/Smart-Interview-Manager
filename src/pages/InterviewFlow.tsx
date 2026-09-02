@@ -550,6 +550,7 @@ export default function InterviewFlow() {
     const q = questions[currentQ];
     if (!q) return;
     const utterance = new SpeechSynthesisUtterance(q.question_text);
+    utterance.lang = getLanguage(language).locale;
     utterance.onend = () => setIsSpeaking(false);
     setIsSpeaking(true);
     speechSynthesis.speak(utterance);
@@ -560,6 +561,7 @@ export default function InterviewFlow() {
     const q = questions[currentQ];
     if (!q) return;
     const utterance = new SpeechSynthesisUtterance(q.question_text);
+    utterance.lang = getLanguage(language).locale;
     utterance.onend = () => setIsSpeaking(false);
     setIsSpeaking(true);
     speechSynthesis.speak(utterance);
