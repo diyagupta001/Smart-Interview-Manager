@@ -475,6 +475,7 @@ export default function InterviewFlow() {
     await supabase.functions.invoke("interview-session", {
       body: { action: "complete", interviewId, status: "auto_submitted" },
     });
+    try { localStorage.removeItem(sessionKey); } catch { /* ignore */ }
     evaluateInterview();
   };
 
@@ -482,6 +483,7 @@ export default function InterviewFlow() {
     await supabase.functions.invoke("interview-session", {
       body: { action: "complete", interviewId, status: "completed" },
     });
+    try { localStorage.removeItem(sessionKey); } catch { /* ignore */ }
     evaluateInterview();
   };
 
