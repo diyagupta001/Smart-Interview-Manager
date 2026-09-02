@@ -11,7 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Mic, MicOff, Volume2, VolumeX, Play, Pause, RotateCcw, Clock, AlertTriangle, Loader2, CheckCircle2, XCircle, ArrowRight, Camera, CameraOff, Video } from "lucide-react";
+import { Brain, Mic, MicOff, Volume2, VolumeX, Play, Pause, RotateCcw, Clock, AlertTriangle, Loader2, CheckCircle2, XCircle, ArrowRight, Camera, CameraOff, Video, Languages } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  ANSWER_LANGUAGE_OPTIONS,
+  DEFAULT_LANGUAGE_CODE,
+  getLanguage,
+  type AnswerLanguageOption,
+} from "@/lib/languages";
 
 type Phase = "loading" | "expired" | "welcome" | "interview" | "analyzing" | "result";
 
@@ -47,6 +54,15 @@ export default function InterviewFlow() {
   const [timePerQuestion, setTimePerQuestion] = useState(120);
   const [linkId, setLinkId] = useState("");
   const [interviewId, setInterviewId] = useState("");
+
+  // Language selection
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>([DEFAULT_LANGUAGE_CODE]);
+  const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE_CODE);
+  const [answerLanguage, setAnswerLanguage] = useState<AnswerLanguageOption>("same");
+  const sessionKey = `intervia:interview:${token ?? ""}`;
+  const speechLocale = getLanguage(
+    answerLanguage === "english" ? "en" : language,
+  ).locale;
 
   // Interview state
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -93,7 +109,14 @@ export default function InterviewFlow() {
       body: { action: "load", token },
     });
 
-    if (error || !data?.valid) { setPhase("expired"); return; }
+    const storedId = typeof window !== "undefined" ? localStorage.getItem(sessionKey) : null;
+
+    if (error || !data?.valid) {
+      // A used link is expected once the interview started — try resuming it.
+      if (storedId && (await resumeSession(storedId))) return;
+      setPhase("expired");
+      return;
+    }
 
     const job = data.job;
     setLinkId(data.linkId);
@@ -104,8 +127,44 @@ export default function InterviewFlow() {
     setTimePerQuestion(job.time_per_question);
     setCandidateName(data.candidateName || "");
     setCandidateEmail(data.candidateEmail || "");
+
+    const langs: string[] = Array.isArray(data.availableLanguages) && data.availableLanguages.length
+      ? data.availableLanguages
+      : [DEFAULT_LANGUAGE_CODE];
+    setAvailableLanguages(langs);
+    setLanguage(langs.includes(DEFAULT_LANGUAGE_CODE) ? DEFAULT_LANGUAGE_CODE : langs[0]);
+
+    if (storedId && (await resumeSession(storedId))) return;
     setPhase("welcome");
   };
+
+  // Restore an in-progress interview after a refresh (keeps the chosen language).
+  const resumeSession = async (storedId: string): Promise<boolean> => {
+    const { data, error } = await supabase.functions.invoke("interview-session", {
+      body: { action: "session", interviewId: storedId },
+    });
+    if (error || !data?.active) {
+      localStorage.removeItem(sessionKey);
+      return false;
+    }
+    setInterviewId(data.interviewId);
+    setLanguage(data.language || DEFAULT_LANGUAGE_CODE);
+    setAnswerLanguage((data.answerLanguage as AnswerLanguageOption) || "same");
+    if (data.candidateName) setCandidateName(data.candidateName);
+    if (data.candidateEmail) setCandidateEmail(data.candidateEmail);
+    setTabWarnings(data.tabSwitchCount || 0);
+    const qs = (data.questions || []) as Question[];
+    if (!qs.length) {
+      localStorage.removeItem(sessionKey);
+      return false;
+    }
+    setQuestions(qs);
+    setCurrentQ(Math.min(data.answeredCount || 0, qs.length - 1));
+    await startWebcam();
+    setPhase("interview");
+    return true;
+  };
+
 
   // Webcam: start stream
   const startWebcam = async () => {
@@ -327,7 +386,7 @@ export default function InterviewFlow() {
   // Start interview
   const startInterview = async () => {
     const { data: started, error: startError } = await supabase.functions.invoke("interview-session", {
-      body: { action: "start", token },
+      body: { action: "start", token, language, answerLanguage },
     });
 
     if (startError || !started?.interviewId) {
@@ -336,12 +395,15 @@ export default function InterviewFlow() {
     }
     const interview = { id: started.interviewId as string };
     setInterviewId(interview.id);
+    setLanguage(started.language || language);
+    setAnswerLanguage((started.answerLanguage as AnswerLanguageOption) || answerLanguage);
+    try { localStorage.setItem(sessionKey, interview.id); } catch { /* storage unavailable */ }
 
     // Generate questions via edge function
     setPhase("loading");
     try {
       const { data, error } = await supabase.functions.invoke("generate-questions", {
-        body: { interviewId: interview.id, jobTitle, jobDescription, skills: jobSkills, questionCount, difficulty: "adaptive" },
+        body: { interviewId: interview.id, jobTitle, jobDescription, skills: jobSkills, questionCount, difficulty: "adaptive", language: started.language || language },
       });
 
       if (error) throw error;
@@ -413,6 +475,7 @@ export default function InterviewFlow() {
     await supabase.functions.invoke("interview-session", {
       body: { action: "complete", interviewId, status: "auto_submitted" },
     });
+    try { localStorage.removeItem(sessionKey); } catch { /* ignore */ }
     evaluateInterview();
   };
 
@@ -420,6 +483,7 @@ export default function InterviewFlow() {
     await supabase.functions.invoke("interview-session", {
       body: { action: "complete", interviewId, status: "completed" },
     });
+    try { localStorage.removeItem(sessionKey); } catch { /* ignore */ }
     evaluateInterview();
   };
 
@@ -458,6 +522,7 @@ export default function InterviewFlow() {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.lang = speechLocale;
 
     recognition.onresult = (event: any) => {
       let transcript = "";
@@ -485,6 +550,7 @@ export default function InterviewFlow() {
     const q = questions[currentQ];
     if (!q) return;
     const utterance = new SpeechSynthesisUtterance(q.question_text);
+    utterance.lang = getLanguage(language).locale;
     utterance.onend = () => setIsSpeaking(false);
     setIsSpeaking(true);
     speechSynthesis.speak(utterance);
@@ -495,6 +561,7 @@ export default function InterviewFlow() {
     const q = questions[currentQ];
     if (!q) return;
     const utterance = new SpeechSynthesisUtterance(q.question_text);
+    utterance.lang = getLanguage(language).locale;
     utterance.onend = () => setIsSpeaking(false);
     setIsSpeaking(true);
     speechSynthesis.speak(utterance);
@@ -551,7 +618,62 @@ export default function InterviewFlow() {
                 <p>🔒 3 violations will auto-submit your interview</p>
               </div>
 
-              {/* Webcam permission */}
+              {/* Interview language selection */}
+              {availableLanguages.length > 0 && (
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Languages className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Interview Language</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableLanguages.map((code) => {
+                      const l = getLanguage(code);
+                      const selected = language === code;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => setLanguage(code)}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                            selected
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          <span className="text-base">{l.flag}</span>
+                          <span className="flex-1 truncate font-medium">{l.nativeLabel}</span>
+                          {selected && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <Label htmlFor="answer-language" className="text-xs text-muted-foreground">
+                      How will you answer?
+                    </Label>
+                    <Select
+                      value={answerLanguage}
+                      onValueChange={(v) => setAnswerLanguage(v as AnswerLanguageOption)}
+                    >
+                      <SelectTrigger id="answer-language">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ANSWER_LANGUAGE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            <div>
+                              <span>{opt.label}</span>
+                              <span className="ml-2 text-xs text-muted-foreground">{opt.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-lg border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
