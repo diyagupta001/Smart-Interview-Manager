@@ -109,7 +109,14 @@ export default function InterviewFlow() {
       body: { action: "load", token },
     });
 
-    if (error || !data?.valid) { setPhase("expired"); return; }
+    const storedId = typeof window !== "undefined" ? localStorage.getItem(sessionKey) : null;
+
+    if (error || !data?.valid) {
+      // A used link is expected once the interview started — try resuming it.
+      if (storedId && (await resumeSession(storedId))) return;
+      setPhase("expired");
+      return;
+    }
 
     const job = data.job;
     setLinkId(data.linkId);
@@ -120,8 +127,44 @@ export default function InterviewFlow() {
     setTimePerQuestion(job.time_per_question);
     setCandidateName(data.candidateName || "");
     setCandidateEmail(data.candidateEmail || "");
+
+    const langs: string[] = Array.isArray(data.availableLanguages) && data.availableLanguages.length
+      ? data.availableLanguages
+      : [DEFAULT_LANGUAGE_CODE];
+    setAvailableLanguages(langs);
+    setLanguage(langs.includes(DEFAULT_LANGUAGE_CODE) ? DEFAULT_LANGUAGE_CODE : langs[0]);
+
+    if (storedId && (await resumeSession(storedId))) return;
     setPhase("welcome");
   };
+
+  // Restore an in-progress interview after a refresh (keeps the chosen language).
+  const resumeSession = async (storedId: string): Promise<boolean> => {
+    const { data, error } = await supabase.functions.invoke("interview-session", {
+      body: { action: "session", interviewId: storedId },
+    });
+    if (error || !data?.active) {
+      localStorage.removeItem(sessionKey);
+      return false;
+    }
+    setInterviewId(data.interviewId);
+    setLanguage(data.language || DEFAULT_LANGUAGE_CODE);
+    setAnswerLanguage((data.answerLanguage as AnswerLanguageOption) || "same");
+    if (data.candidateName) setCandidateName(data.candidateName);
+    if (data.candidateEmail) setCandidateEmail(data.candidateEmail);
+    setTabWarnings(data.tabSwitchCount || 0);
+    const qs = (data.questions || []) as Question[];
+    if (!qs.length) {
+      localStorage.removeItem(sessionKey);
+      return false;
+    }
+    setQuestions(qs);
+    setCurrentQ(Math.min(data.answeredCount || 0, qs.length - 1));
+    await startWebcam();
+    setPhase("interview");
+    return true;
+  };
+
 
   // Webcam: start stream
   const startWebcam = async () => {
