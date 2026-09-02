@@ -618,7 +618,62 @@ export default function InterviewFlow() {
                 <p>🔒 3 violations will auto-submit your interview</p>
               </div>
 
-              {/* Webcam permission */}
+              {/* Interview language selection */}
+              {availableLanguages.length > 0 && (
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Languages className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Interview Language</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableLanguages.map((code) => {
+                      const l = getLanguage(code);
+                      const selected = language === code;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => setLanguage(code)}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                            selected
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          <span className="text-base">{l.flag}</span>
+                          <span className="flex-1 truncate font-medium">{l.nativeLabel}</span>
+                          {selected && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <Label htmlFor="answer-language" className="text-xs text-muted-foreground">
+                      How will you answer?
+                    </Label>
+                    <Select
+                      value={answerLanguage}
+                      onValueChange={(v) => setAnswerLanguage(v as AnswerLanguageOption)}
+                    >
+                      <SelectTrigger id="answer-language">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ANSWER_LANGUAGE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            <div>
+                              <span>{opt.label}</span>
+                              <span className="ml-2 text-xs text-muted-foreground">{opt.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-lg border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
