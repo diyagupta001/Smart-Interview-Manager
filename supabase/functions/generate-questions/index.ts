@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English", hi: "Hindi", pa: "Punjabi", "hr-haryanvi": "Haryanvi (colloquial Hindi dialect)", bn: "Bengali",
+  mr: "Marathi", gu: "Gujarati", ta: "Tamil", te: "Telugu", kn: "Kannada", ml: "Malayalam",
+  ur: "Urdu", or: "Odia", as: "Assamese", es: "Spanish", fr: "French", de: "German", ar: "Arabic",
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -10,7 +16,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { interviewId, jobTitle, jobDescription, skills, questionCount, difficulty } = await req.json();
+    const { interviewId, jobTitle, jobDescription, skills, questionCount, difficulty, language } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -20,6 +26,15 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const skillsList = (skills || []).join(", ");
+    const langCode = language || "en";
+    const langName = LANGUAGE_NAMES[langCode] || "English";
+    const languageBlock = langCode === "en" ? "" : `
+
+LANGUAGE REQUIREMENT (critical):
+- Write EVERY question in ${langName}, using that language's native script.
+- Keep established technical terms (e.g. "React", "REST API", "index", "join") in English inside the ${langName} sentence so they stay unambiguous.
+- Natural, spoken, interviewer-style phrasing — this text will be read aloud by text-to-speech in ${langName}.
+- Do not add translations, transliterations or English versions in brackets.`;
 
     // Pull any resume the HR team attached to this invitation
     let resumeBlock = "";
@@ -46,7 +61,7 @@ Resume rules:
     const systemPrompt = `You are an expert interviewer. Generate exactly ${questionCount || 8} interview questions for a ${jobTitle} position.
 
 Job Description: ${jobDescription || "Not provided"}
-Required Skills: ${skillsList || "General"}${resumeBlock}
+Required Skills: ${skillsList || "General"}${resumeBlock}${languageBlock}
 
 Rules:
 - Mix question types: technical (about skills/knowledge), hr (behavioral/cultural), scenario (situational problem-solving)
@@ -66,7 +81,7 @@ Respond with a JSON array of objects, each with: question_text, question_type (t
       body: JSON.stringify({
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate ${questionCount} interview questions for ${jobTitle}. Return only a JSON array.` },
+          { role: "user", content: `Generate ${questionCount} interview questions for ${jobTitle} in ${langName}. Return only a JSON array.` },
         ],
         tools: [{
           type: "function",
