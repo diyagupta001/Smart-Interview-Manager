@@ -11,7 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Mic, MicOff, Volume2, VolumeX, Play, Pause, RotateCcw, Clock, AlertTriangle, Loader2, CheckCircle2, XCircle, ArrowRight, Camera, CameraOff, Video } from "lucide-react";
+import { Brain, Mic, MicOff, Volume2, VolumeX, Play, Pause, RotateCcw, Clock, AlertTriangle, Loader2, CheckCircle2, XCircle, ArrowRight, Camera, CameraOff, Video, Languages } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  ANSWER_LANGUAGE_OPTIONS,
+  DEFAULT_LANGUAGE_CODE,
+  getLanguage,
+  type AnswerLanguageOption,
+} from "@/lib/languages";
 
 type Phase = "loading" | "expired" | "welcome" | "interview" | "analyzing" | "result";
 
