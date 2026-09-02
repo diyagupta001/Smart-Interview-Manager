@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English", hi: "Hindi", pa: "Punjabi", "hr-haryanvi": "Haryanvi", bn: "Bengali",
+  mr: "Marathi", gu: "Gujarati", ta: "Tamil", te: "Telugu", kn: "Kannada", ml: "Malayalam",
+  ur: "Urdu", or: "Odia", as: "Assamese", es: "Spanish", fr: "French", de: "German", ar: "Arabic",
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -57,9 +63,13 @@ serve(async (req) => {
 
     const answered = qaPairs.filter((p) => {
       const t = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
-      return t.length >= 15 && /[a-zA-Z]{3,}/.test(t);
+      return t.length >= 15 && /\p{L}{3,}/u.test(t);
     });
     const answeredRatio = qaPairs.length ? answered.length / qaPairs.length : 0;
+
+    const langCode = interview?.interview_language || "en";
+    const answerLang = interview?.answer_language || "same";
+    const langName = LANGUAGE_NAMES[langCode] || "English";
 
     const systemPrompt = `You are a STRICT expert interview evaluator. Be harsh and evidence-based. Never be generous.
 
@@ -92,7 +102,13 @@ Interview facts:
 - Questions asked: ${qaPairs.length}
 - Questions with a substantive answer: ${answered.length} (${Math.round(answeredRatio * 100)}%)
 - Tab switches: ${interview?.tab_switch_count || 0} (penalize heavily if > 2)
-- Auto-submitted: ${interview?.status === "auto_submitted" ? "Yes (suspicious)" : "No"}`;
+- Auto-submitted: ${interview?.status === "auto_submitted" ? "Yes (suspicious)" : "No"}
+- Interview language: ${langName} (answers allowed in: ${answerLang === "english" ? "English" : answerLang === "both" ? `${langName} or English` : langName})
+
+LANGUAGE RULES:
+- The candidate may answer in ${langName} (any script) or English. NEVER treat a non-English answer as gibberish, irrelevant or unanswered.
+- Judge meaning and correctness only. Do not deduct points for grammar or accent of a non-English language, or for mixing English technical terms into ${langName}.
+- Write justification, key_gaps, ideal_answer and ai_feedback in English so HR can read them, but quote the candidate's own words verbatim in their original language.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -192,7 +208,7 @@ Interview facts:
     // Normalise per-question LLM grades: anything not substantive is forced to 0.
     const gradedQuestions = qaPairs.map((p, i) => {
       const text = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
-      const substantive = text.length >= 15 && /[a-zA-Z]{3,}/.test(text);
+      const substantive = text.length >= 15 && /\p{L}{3,}/u.test(text);
       const g = perQuestion.find((x: any) => Number(x?.index) === i + 1) || perQuestion[i] || {};
       return {
         index: i + 1,
@@ -251,7 +267,7 @@ Interview facts:
           answer_char_count: text.length,
           answer_word_count: text ? text.split(/\s+/).length : 0,
           time_taken_seconds: p.time_taken,
-          counted_as_substantive: text.length >= 15 && /[a-zA-Z]{3,}/.test(text),
+          counted_as_substantive: text.length >= 15 && /\p{L}{3,}/u.test(text),
           llm_grade: graded
             ? {
                 technical: graded.technical,
