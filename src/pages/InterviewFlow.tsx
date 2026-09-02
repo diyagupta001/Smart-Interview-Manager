@@ -522,6 +522,7 @@ export default function InterviewFlow() {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.lang = speechLocale;
 
     recognition.onresult = (event: any) => {
       let transcript = "";
