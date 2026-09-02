@@ -55,6 +55,15 @@ export default function InterviewFlow() {
   const [linkId, setLinkId] = useState("");
   const [interviewId, setInterviewId] = useState("");
 
+  // Language selection
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>([DEFAULT_LANGUAGE_CODE]);
+  const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE_CODE);
+  const [answerLanguage, setAnswerLanguage] = useState<AnswerLanguageOption>("same");
+  const sessionKey = `intervia:interview:${token ?? ""}`;
+  const speechLocale = getLanguage(
+    answerLanguage === "english" ? "en" : language,
+  ).locale;
+
   // Interview state
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
