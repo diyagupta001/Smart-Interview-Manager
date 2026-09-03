@@ -476,7 +476,7 @@ The Intervia Hiring Team`;
                       checked={allowedLanguages.includes(lang.code)}
                       onCheckedChange={() => toggleLanguage(lang.code)}
                     />
-                    <span>{lang.flag} {lang.nativeLabel}</span>
+                    <span>{lang.flag} {lang.label}</span>
                   </label>
                 ))}
               </div>
