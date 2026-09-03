@@ -641,7 +641,7 @@ export default function InterviewFlow() {
                           }`}
                         >
                           <span className="text-base">{l.flag}</span>
-                          <span className="flex-1 truncate font-medium">{l.nativeLabel}</span>
+                          <span className="flex-1 truncate font-medium">{l.label}</span>
                           {selected && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}
                         </button>
                       );
