@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { INTERVIEW_LANGUAGES, DEFAULT_LANGUAGE_CODE } from "@/lib/languages";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Copy, Link as LinkIcon, Loader2, Search, Mail, FileText, Upload, X, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
@@ -48,6 +50,7 @@ export default function JobRoles() {
   const [expiry, setExpiry] = useState("24h");
   const [candidateName, setCandidateName] = useState("");
   const [candidateEmail, setCandidateEmail] = useState("");
+  const [allowedLanguages, setAllowedLanguages] = useState<string[]>([DEFAULT_LANGUAGE_CODE]);
   const [generatedLink, setGeneratedLink] = useState("");
   const [generatingLink, setGeneratingLink] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
