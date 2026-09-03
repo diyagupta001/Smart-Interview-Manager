@@ -112,6 +112,7 @@ export default function JobRoles() {
     setSelectedJobId(jobId);
     setCandidateName(""); setCandidateEmail(""); setGeneratedLink(""); setExpiry("24h"); setSendEmail(true); setEmailSent(false);
     setResumeFileName(""); setResumeData(null); setParsingResume(false);
+    setAllowedLanguages([DEFAULT_LANGUAGE_CODE]);
     setLinkDialogOpen(true);
   };
 
@@ -185,6 +186,7 @@ export default function JobRoles() {
       created_by: user.id,
       resume_data: resumeData ?? {},
       interview_mode: resumeData ? "resume_based" : "standard",
+      available_languages: allowedLanguages.length ? allowedLanguages : [DEFAULT_LANGUAGE_CODE],
     }).select("id, token").single();
 
     if (error) {
