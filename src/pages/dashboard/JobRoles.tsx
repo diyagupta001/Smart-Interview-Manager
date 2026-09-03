@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { INTERVIEW_LANGUAGES, DEFAULT_LANGUAGE_CODE } from "@/lib/languages";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Copy, Link as LinkIcon, Loader2, Search, Mail, FileText, Upload, X, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
@@ -48,6 +50,7 @@ export default function JobRoles() {
   const [expiry, setExpiry] = useState("24h");
   const [candidateName, setCandidateName] = useState("");
   const [candidateEmail, setCandidateEmail] = useState("");
+  const [allowedLanguages, setAllowedLanguages] = useState<string[]>([DEFAULT_LANGUAGE_CODE]);
   const [generatedLink, setGeneratedLink] = useState("");
   const [generatingLink, setGeneratingLink] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -109,6 +112,7 @@ export default function JobRoles() {
     setSelectedJobId(jobId);
     setCandidateName(""); setCandidateEmail(""); setGeneratedLink(""); setExpiry("24h"); setSendEmail(true); setEmailSent(false);
     setResumeFileName(""); setResumeData(null); setParsingResume(false);
+    setAllowedLanguages([DEFAULT_LANGUAGE_CODE]);
     setLinkDialogOpen(true);
   };
 
@@ -162,6 +166,14 @@ export default function JobRoles() {
 
   const clearResume = () => { setResumeFileName(""); setResumeData(null); };
 
+  const toggleLanguage = (code: string) => {
+    setAllowedLanguages(prev =>
+      prev.includes(code)
+        ? (prev.length > 1 ? prev.filter(c => c !== code) : prev) // keep at least one
+        : [...prev, code]
+    );
+  };
+
   const generateLink = async () => {
     if (!user || !selectedJobId) return;
     if (sendEmail && !candidateEmail.trim()) {
@@ -182,6 +194,7 @@ export default function JobRoles() {
       created_by: user.id,
       resume_data: resumeData ?? {},
       interview_mode: resumeData ? "resume_based" : "standard",
+      available_languages: allowedLanguages.length ? allowedLanguages : [DEFAULT_LANGUAGE_CODE],
     }).select("id, token").single();
 
     if (error) {
@@ -451,6 +464,22 @@ The Intervia Hiring Team`;
                   <SelectItem value="7d">7 Days</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Allowed languages ({allowedLanguages.length} selected)</Label>
+              <p className="text-xs text-muted-foreground">The candidate picks one of these before starting; questions, voice and follow-ups adapt to it.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 rounded-lg border p-3 max-h-44 overflow-y-auto">
+                {INTERVIEW_LANGUAGES.map(lang => (
+                  <label key={lang.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={allowedLanguages.includes(lang.code)}
+                      onCheckedChange={() => toggleLanguage(lang.code)}
+                    />
+                    <span>{lang.flag} {lang.nativeLabel}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
