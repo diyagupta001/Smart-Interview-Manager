@@ -166,6 +166,14 @@ export default function JobRoles() {
 
   const clearResume = () => { setResumeFileName(""); setResumeData(null); };
 
+  const toggleLanguage = (code: string) => {
+    setAllowedLanguages(prev =>
+      prev.includes(code)
+        ? (prev.length > 1 ? prev.filter(c => c !== code) : prev) // keep at least one
+        : [...prev, code]
+    );
+  };
+
   const generateLink = async () => {
     if (!user || !selectedJobId) return;
     if (sendEmail && !candidateEmail.trim()) {
@@ -456,6 +464,22 @@ The Intervia Hiring Team`;
                   <SelectItem value="7d">7 Days</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Allowed languages ({allowedLanguages.length} selected)</Label>
+              <p className="text-xs text-muted-foreground">The candidate picks one of these before starting; questions, voice and follow-ups adapt to it.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 rounded-lg border p-3 max-h-44 overflow-y-auto">
+                {INTERVIEW_LANGUAGES.map(lang => (
+                  <label key={lang.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={allowedLanguages.includes(lang.code)}
+                      onCheckedChange={() => toggleLanguage(lang.code)}
+                    />
+                    <span>{lang.flag} {lang.nativeLabel}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
