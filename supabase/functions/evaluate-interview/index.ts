@@ -309,7 +309,7 @@ LANGUAGE RULES:
     // Audit trail: exactly what the score was computed from.
     const debug_details = {
       evaluated_at: new Date().toISOString(),
-      model: "google/gemini-3.6-flash",
+      model: MODEL,
       questions: qaPairs.map((p, i) => {
         const text = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
         const graded = gradedQuestions[i];
