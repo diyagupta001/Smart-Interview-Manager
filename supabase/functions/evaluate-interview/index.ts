@@ -110,56 +110,77 @@ LANGUAGE RULES:
 - Judge meaning and correctness only. Do not deduct points for grammar or accent of a non-English language, or for mixing English technical terms into ${langName}.
 - Write justification, key_gaps, ideal_answer and ai_feedback in English so HR can read them, but quote the candidate's own words verbatim in their original language.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const perQuestionSchema = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        index: { type: "integer" },
+        technical: { type: "integer" },
+        communication: { type: "integer" },
+        confidence: { type: "integer" },
+        verdict: { type: "string", enum: ["no_answer", "irrelevant", "incorrect", "partial", "good", "excellent"] },
+        justification: { type: "string" },
+        key_gaps: { type: "string" },
+        ideal_answer: { type: "string" },
+      },
+      required: ["index", "technical", "communication", "confidence", "verdict", "justification", "key_gaps", "ideal_answer"],
+    };
+
+    const evaluationSchema = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        per_question: { type: "array", items: perQuestionSchema },
+        technical_score: { type: "integer" },
+        communication_score: { type: "integer" },
+        confidence_score: { type: "integer" },
+        overall_rating: { type: "integer" },
+        decision: { type: "string", enum: ["selected", "rejected"] },
+        ai_feedback: { type: "string" },
+      },
+      required: [
+        "per_question",
+        "technical_score",
+        "communication_score",
+        "confidence_score",
+        "overall_rating",
+        "decision",
+        "ai_feedback",
+      ],
+    };
+
+    const MODEL = "openai/gpt-6-astra";
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Lovable-API-Key": LOVABLE_API_KEY,
         "Content-Type": "application/json",
+        "X-Lovable-AIG-SDK": "fetch",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.6-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Evaluate this interview:\n\n${JSON.stringify(qaPairs, null, 2)}` },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "submit_evaluation",
-            description: "Submit per-question grading and the overall interview evaluation scores",
-            parameters: {
-              type: "object",
-              properties: {
-                per_question: {
-                  type: "array",
-                  description: "One entry per question, in the same order as provided",
-                  items: {
-                    type: "object",
-                    properties: {
-                      index: { type: "integer" },
-                      technical: { type: "integer", minimum: 0, maximum: 100 },
-                      communication: { type: "integer", minimum: 0, maximum: 100 },
-                      confidence: { type: "integer", minimum: 0, maximum: 100 },
-                      verdict: { type: "string", enum: ["no_answer", "irrelevant", "incorrect", "partial", "good", "excellent"] },
-                      justification: { type: "string" },
-                      key_gaps: { type: "string" },
-                      ideal_answer: { type: "string" },
-                    },
-                    required: ["index", "technical", "communication", "confidence", "verdict", "justification", "key_gaps", "ideal_answer"],
-                  },
-                },
-                technical_score: { type: "integer", minimum: 0, maximum: 100 },
-                communication_score: { type: "integer", minimum: 0, maximum: 100 },
-                confidence_score: { type: "integer", minimum: 0, maximum: 100 },
-                overall_rating: { type: "integer", minimum: 0, maximum: 100 },
-                decision: { type: "string", enum: ["selected", "rejected"] },
-                ai_feedback: { type: "string" },
-              },
-              required: ["per_question", "technical_score", "communication_score", "confidence_score", "overall_rating", "decision", "ai_feedback"],
-            },
+        model: MODEL,
+        stream: true,
+        reasoning: { effort: "medium", summary: "auto" },
+        input: [
+          { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
+          {
+            role: "user",
+            content: [{
+              type: "input_text",
+              text: `Evaluate this interview and return json matching the required schema:\n\n${JSON.stringify(qaPairs, null, 2)}`,
+            }],
           },
-        }],
-        tool_choice: { type: "function", function: { name: "submit_evaluation" } },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "interview_evaluation",
+            strict: true,
+            schema: evaluationSchema,
+          },
+        },
       }),
     });
 
@@ -175,8 +196,37 @@ LANGUAGE RULES:
       throw new Error(`AI error: ${response.status}`);
     }
 
-    const aiData = await response.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    // Read the SSE stream and accumulate the model's JSON output.
+    let outputText = "";
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const evt = JSON.parse(payload);
+          if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") {
+            outputText += evt.delta;
+          } else if (evt.type === "response.completed" && evt.response?.output_text) {
+            const finalText = Array.isArray(evt.response.output_text)
+              ? evt.response.output_text.join("")
+              : evt.response.output_text;
+            if (finalText && finalText.length > outputText.length) outputText = finalText;
+          }
+        } catch (_) {
+          // ignore keep-alive / non-JSON lines
+        }
+      }
+    }
+
     let evaluation = {
       technical_score: 50,
       communication_score: 50,
@@ -188,19 +238,24 @@ LANGUAGE RULES:
 
     let rawModelEvaluation: any = null;
     let perQuestion: any[] = [];
-    if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      rawModelEvaluation = parsed;
-      perQuestion = Array.isArray(parsed.per_question) ? parsed.per_question : [];
-      evaluation = {
-        technical_score: parsed.technical_score ?? 50,
-        communication_score: parsed.communication_score ?? 50,
-        confidence_score: parsed.confidence_score ?? 50,
-        overall_rating: parsed.overall_rating ?? 50,
-        decision: parsed.decision === "selected" ? "selected" : "rejected",
-        ai_feedback: parsed.ai_feedback || "Evaluation completed.",
-      };
+    if (outputText.trim()) {
+      try {
+        const parsed = JSON.parse(outputText);
+        rawModelEvaluation = parsed;
+        perQuestion = Array.isArray(parsed.per_question) ? parsed.per_question : [];
+        evaluation = {
+          technical_score: parsed.technical_score ?? 50,
+          communication_score: parsed.communication_score ?? 50,
+          confidence_score: parsed.confidence_score ?? 50,
+          overall_rating: parsed.overall_rating ?? 50,
+          decision: parsed.decision === "selected" ? "selected" : "rejected",
+          ai_feedback: parsed.ai_feedback || "Evaluation completed.",
+        };
+      } catch (err) {
+        console.error("Failed to parse evaluation JSON:", err, outputText.slice(0, 500));
+      }
     }
+
 
     // Deterministic guardrails: the model must never reward blank interviews.
     const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
@@ -254,7 +309,7 @@ LANGUAGE RULES:
     // Audit trail: exactly what the score was computed from.
     const debug_details = {
       evaluated_at: new Date().toISOString(),
-      model: "google/gemini-3.6-flash",
+      model: MODEL,
       questions: qaPairs.map((p, i) => {
         const text = (p.answer || "").replace(/\(No answer\)/gi, "").trim();
         const graded = gradedQuestions[i];
