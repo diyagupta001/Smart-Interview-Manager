@@ -97,6 +97,8 @@ export default function InterviewFlow() {
 
   const timerRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
+  const recordingRef = useRef(false);
+
 
   // Load interview link
   useEffect(() => {
