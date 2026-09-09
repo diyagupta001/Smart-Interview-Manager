@@ -97,6 +97,8 @@ export default function InterviewFlow() {
 
   const timerRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
+  const recordingRef = useRef(false);
+
 
   // Load interview link
   useEffect(() => {
@@ -508,11 +510,12 @@ export default function InterviewFlow() {
   // Voice input (Web Speech API)
   const toggleVoice = () => {
     if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-      toast({ title: "Speech recognition not supported in this browser", variant: "destructive" });
+      toast({ title: "Speech recognition not supported in this browser", description: "Please type your answer instead.", variant: "destructive" });
       return;
     }
 
     if (isRecording) {
+      recordingRef.current = false;
       recognitionRef.current?.stop();
       setIsRecording(false);
       return;
@@ -524,23 +527,60 @@ export default function InterviewFlow() {
     recognition.interimResults = true;
     recognition.lang = speechLocale;
 
+    const baseText = (answer || "").trim();
     recognition.onresult = (event: any) => {
       let transcript = "";
       for (let i = 0; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
-      setAnswer(transcript);
+      setAnswer(baseText ? `${baseText} ${transcript}` : transcript);
     };
 
-    recognition.onerror = () => setIsRecording(false);
-    recognition.onend = () => setIsRecording(false);
+    recognition.onerror = (e: any) => {
+      if (e?.error === "no-speech" || e?.error === "aborted") return;
+      recordingRef.current = false;
+      setIsRecording(false);
+      toast({
+        title: "Voice input stopped",
+        description:
+          e?.error === "language-not-supported"
+            ? `Your browser cannot recognise ${getLanguage(language).label} speech. Please type your answer.`
+            : "Microphone access failed. Please check permissions or type your answer.",
+        variant: "destructive",
+      });
+    };
+    // Chrome ends the session after a pause — keep listening until the user stops.
+    recognition.onend = () => {
+      if (recordingRef.current) {
+        try { recognition.start(); return; } catch { /* fallthrough */ }
+      }
+      setIsRecording(false);
+    };
 
     recognitionRef.current = recognition;
+    recordingRef.current = true;
     recognition.start();
     setIsRecording(true);
   };
 
-  // TTS
+  // TTS — pick a voice that actually speaks the interview language.
+  const speak = (text: string) => {
+    const locale = getLanguage(language).locale;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = locale;
+    const voices = speechSynthesis.getVoices();
+    const base = locale.split("-")[0];
+    const voice =
+      voices.find((v) => v.lang.replace("_", "-").toLowerCase() === locale.toLowerCase()) ||
+      voices.find((v) => v.lang.replace("_", "-").toLowerCase().startsWith(base));
+    if (voice) utterance.voice = voice;
+    utterance.rate = 0.95;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    speechSynthesis.speak(utterance);
+  };
+
   const speakQuestion = () => {
     if (isSpeaking) {
       speechSynthesis.cancel();
@@ -548,24 +588,15 @@ export default function InterviewFlow() {
       return;
     }
     const q = questions[currentQ];
-    if (!q) return;
-    const utterance = new SpeechSynthesisUtterance(q.question_text);
-    utterance.lang = getLanguage(language).locale;
-    utterance.onend = () => setIsSpeaking(false);
-    setIsSpeaking(true);
-    speechSynthesis.speak(utterance);
+    if (q) speak(q.question_text);
   };
 
   const replayQuestion = () => {
     speechSynthesis.cancel();
     const q = questions[currentQ];
-    if (!q) return;
-    const utterance = new SpeechSynthesisUtterance(q.question_text);
-    utterance.lang = getLanguage(language).locale;
-    utterance.onend = () => setIsSpeaking(false);
-    setIsSpeaking(true);
-    speechSynthesis.speak(utterance);
+    if (q) speak(q.question_text);
   };
+
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
