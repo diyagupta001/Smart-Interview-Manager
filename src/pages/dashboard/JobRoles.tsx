@@ -513,7 +513,9 @@ The Intervia Hiring Team`;
                 <div>
                   <Label>Resume-based interview (optional)</Label>
                   <p className="text-xs text-muted-foreground">
-                    Upload the candidate's resume (PDF or TXT) to personalise the AI questions.
+                    Upload the candidate's resume (PDF, Word .docx or TXT). We read the skills,
+                    projects and experience, then build the questions around them.
+
                   </p>
                 </div>
               </div>
