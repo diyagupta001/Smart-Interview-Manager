@@ -134,14 +134,30 @@ export default function JobRoles() {
     setResumeData(null);
     setParsingResume(true);
     try {
-      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const lower = file.name.toLowerCase();
+      const isPdf = file.type === "application/pdf" || lower.endsWith(".pdf");
+      const isDocx = lower.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      const isLegacyDoc = lower.endsWith(".doc") && !isDocx;
       const payload: Record<string, unknown> = { fileName: file.name, mimeType: file.type };
+
+      if (isLegacyDoc) {
+        throw new Error("Old .doc files aren't supported. Please save it as PDF or .docx and upload again.");
+      }
+
       if (isPdf) {
         payload.fileBase64 = await fileToBase64(file);
         payload.mimeType = "application/pdf";
+      } else if (isDocx) {
+        const mammoth = await import("mammoth/mammoth.browser");
+        const { value } = await (mammoth as any).extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        if (!value || value.trim().length < 40) {
+          throw new Error("We couldn't read any text from that Word file. Try uploading it as a PDF.");
+        }
+        payload.text = value;
       } else {
         payload.text = await file.text();
       }
+
 
       const { data, error } = await supabase.functions.invoke("parse-resume", { body: payload });
       if (error) throw error;
@@ -497,7 +513,9 @@ The Intervia Hiring Team`;
                 <div>
                   <Label>Resume-based interview (optional)</Label>
                   <p className="text-xs text-muted-foreground">
-                    Upload the candidate's resume (PDF or TXT) to personalise the AI questions.
+                    Upload the candidate's resume (PDF, Word .docx or TXT). We read the skills,
+                    projects and experience, then build the questions around them.
+
                   </p>
                 </div>
               </div>
@@ -507,7 +525,7 @@ The Intervia Hiring Team`;
                   <Input
                     id="resume-upload"
                     type="file"
-                    accept=".pdf,.txt,.md,application/pdf,text/plain"
+                    accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                     disabled={parsingResume}
                     onChange={e => handleResumeUpload(e.target.files?.[0])}
                     className="cursor-pointer file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
