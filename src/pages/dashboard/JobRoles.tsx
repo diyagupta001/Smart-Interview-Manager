@@ -525,7 +525,7 @@ The Intervia Hiring Team`;
                   <Input
                     id="resume-upload"
                     type="file"
-                    accept=".pdf,.txt,.md,application/pdf,text/plain"
+                    accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                     disabled={parsingResume}
                     onChange={e => handleResumeUpload(e.target.files?.[0])}
                     className="cursor-pointer file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
