@@ -28,13 +28,17 @@ serve(async (req) => {
     const skillsList = (skills || []).join(", ");
     const langCode = language || "en";
     const langName = LANGUAGE_NAMES[langCode] || "English";
-    const languageBlock = langCode === "en" ? "" : `
+    const buildLanguageBlock = (code: string) => {
+      const name = LANGUAGE_NAMES[code] || "English";
+      return code === "en" ? "" : `
 
 LANGUAGE REQUIREMENT (critical):
-- Write EVERY question in ${langName}, using that language's native script.
-- Keep established technical terms (e.g. "React", "REST API", "index", "join") in English inside the ${langName} sentence so they stay unambiguous.
-- Natural, spoken, interviewer-style phrasing — this text will be read aloud by text-to-speech in ${langName}.
+- Write EVERY question in ${name}, using that language's native script.
+- Keep established technical terms (e.g. "React", "REST API", "index", "join") in English inside the ${name} sentence so they stay unambiguous.
+- Natural, spoken, interviewer-style phrasing — this text will be read aloud by text-to-speech in ${name}.
 - Do not add translations, transliterations or English versions in brackets.`;
+    };
+
 
     // Pull any resume the HR team attached to this invitation
     let resumeBlock = "";
