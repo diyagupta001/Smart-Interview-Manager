@@ -228,39 +228,36 @@ export default function JobRoles() {
         const expiresOn = new Date(Date.now() + hours * 3600000).toLocaleString();
         const skillsList = selectedJob?.required_skills?.join(", ") || "General";
 
-        // Tracking URLs (open pixel + click redirect through edge function)
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        const origin = encodeURIComponent(window.location.origin);
-        const trackBase = `https://${projectId}.functions.supabase.co/track-link`;
-        const openPixelUrl = `${trackBase}?t=${data.token}&type=open`;
-        const trackedLink = `${trackBase}?t=${data.token}&type=click&origin=${origin}`;
+        // Direct link on the app's own domain — redirect trackers and hidden
+        // pixels are strong spam signals, so the invitation links straight through.
+        const trackedLink = `${window.location.origin}/interview/${data.token}`;
 
         const candidateDisplayName = candidateName.trim() || "Candidate";
         const roleTitle = selectedJob?.title || "the role";
 
         const emailMessage = `Hello ${candidateDisplayName},
 
-You have been invited to take an AI-powered interview for the position of ${roleTitle}.
+You have been invited to an online interview for the position of ${roleTitle}.
 
-📋 Interview Details:
-• Role: ${selectedJob?.title || "N/A"}
-• Difficulty: ${selectedJob?.difficulty || "medium"}
-• Number of Questions: ${selectedJob?.question_count || 0}
-• Time per Question: ${selectedJob?.time_per_question || 0} seconds
-• Key Skills: ${skillsList}
+Interview details
+Role: ${selectedJob?.title || "N/A"}
+Level: ${selectedJob?.difficulty || "medium"}
+Number of questions: ${selectedJob?.question_count || 0}
+Time per question: ${selectedJob?.time_per_question || 0} seconds
+Key skills: ${skillsList}
 
-🔗 Your Interview Link:
+Your interview link:
 ${trackedLink}
 
-⏰ This link expires in ${expiryLabel} (on ${expiresOn}) and can only be used once.
+The link expires in ${expiryLabel} (on ${expiresOn}) and can be used once.
 
-📝 Instructions:
+Before you start
 1. Find a quiet place with a stable internet connection.
-2. Click the link above when you're ready to begin.
-3. Do not switch tabs or leave the interview window — this will be flagged.
+2. Open the link above when you are ready to begin.
+3. Stay in the interview window; switching tabs is recorded.
 4. Answer each question within the allotted time.
 
-Best of luck!
+Best regards,
 The Intervia Hiring Team`;
 
         // Minimal, professional HTML email (white bg, subtle borders, single accent)
