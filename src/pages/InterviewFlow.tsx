@@ -423,11 +423,19 @@ export default function InterviewFlow() {
 
     } catch (err) {
       console.error("Failed to generate questions:", err);
-      // Fallback: generate basic questions
+      // Last resort: a basic English set so the interview still runs.
       const fallbackQs = generateFallbackQuestions(interview.id);
+      if (language !== "en") {
+        setLanguage("en");
+        toast({
+          title: "Continuing in English",
+          description: `We couldn't prepare the questions in ${getLanguage(language).label} right now, so the interview will continue in English. You can still answer in your own words.`,
+        });
+      }
       setQuestions(fallbackQs);
       setPhase("interview");
     }
+
   };
 
   const generateFallbackQuestions = (intId: string): Question[] => {
