@@ -297,8 +297,8 @@ The Intervia Hiring Team`;
           <p style="margin:4px 0 0 0;font-size:12px;color:#475569;word-break:break-all;"><a href="${trackedLink}" style="color:#475569;text-decoration:underline;">${trackedLink}</a></p>
         </td></tr>
         <tr><td style="padding:8px 32px 20px 32px;">
-          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:13px;color:#92400e;">
-            ⏰ This link expires in <strong>${expiryLabel}</strong> (on ${expiresOn}) and can only be used once.
+          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;font-size:13px;color:#475569;">
+            This link expires in <strong>${expiryLabel}</strong> (on ${expiresOn}) and can only be used once.
           </div>
         </td></tr>
         <tr><td style="padding:0 32px 24px 32px;">
