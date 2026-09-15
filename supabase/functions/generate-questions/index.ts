@@ -62,10 +62,10 @@ Resume rules:
       }
     }
 
-    const systemPrompt = `You are an expert interviewer. Generate exactly ${questionCount || 8} interview questions for a ${jobTitle} position.
+    const buildSystemPrompt = (code: string) => `You are an expert interviewer. Generate exactly ${questionCount || 8} interview questions for a ${jobTitle} position.
 
 Job Description: ${jobDescription || "Not provided"}
-Required Skills: ${skillsList || "General"}${resumeBlock}${languageBlock}
+Required Skills: ${skillsList || "General"}${resumeBlock}${buildLanguageBlock(code)}
 
 Rules:
 - Mix question types: technical (about skills/knowledge), hr (behavioral/cultural), scenario (situational problem-solving)
@@ -76,76 +76,120 @@ Rules:
 
 Respond with a JSON array of objects, each with: question_text, question_type (technical/hr/scenario), difficulty (easy/medium/hard)`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate ${questionCount} interview questions for ${jobTitle} in ${langName}. Return only a JSON array.` },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "return_questions",
-            description: "Return the generated interview questions",
-            parameters: {
-              type: "object",
-              properties: {
-                questions: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      question_text: { type: "string" },
-                      question_type: { type: "string", enum: ["technical", "hr", "scenario"] },
-                      difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
-                    },
-                    required: ["question_text", "question_type", "difficulty"],
-                  },
+    const TOOLS = [{
+      type: "function",
+      function: {
+        name: "return_questions",
+        description: "Return the generated interview questions",
+        parameters: {
+          type: "object",
+          properties: {
+            questions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  question_text: { type: "string" },
+                  question_type: { type: "string", enum: ["technical", "hr", "scenario"] },
+                  difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
                 },
+                required: ["question_text", "question_type", "difficulty"],
               },
-              required: ["questions"],
             },
           },
-        }],
-        tool_choice: { type: "function", function: { name: "return_questions" } },
-      }),
-    });
+          required: ["questions"],
+        },
+      },
+    }];
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
+    // Languages that must come back in a non-Latin script. If the model replies in
+    // plain ASCII for one of these, it did not honour the language request.
+    const NON_LATIN = ["hi", "bn", "mr", "gu", "ta", "te", "kn", "ml", "ur", "or", "as", "pa", "ar"];
 
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited, please try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    const attempt = async (code: string) => {
+      const name = LANGUAGE_NAMES[code] || "English";
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: buildSystemPrompt(code) },
+            { role: "user", content: `Generate ${questionCount} interview questions for ${jobTitle} in ${name}. Return only a JSON array.` },
+          ],
+          tools: TOOLS,
+          tool_choice: { type: "function", function: { name: "return_questions" } },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("AI gateway error:", code, response.status, errText);
+        return { status: response.status, questions: [] as any[] };
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Credits exhausted." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+
+      const aiData = await response.json();
+      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      let questions: any[] = [];
+      if (toolCall?.function?.arguments) {
+        try {
+          questions = JSON.parse(toolCall.function.arguments).questions || [];
+        } catch (_e) {
+          questions = [];
+        }
       }
-      throw new Error(`AI error: ${response.status}`);
+      questions = questions.filter((q) => typeof q?.question_text === "string" && q.question_text.trim());
+
+      // Script sanity check: a non-Latin language answered purely in ASCII is a miss.
+      if (questions.length && NON_LATIN.includes(code)) {
+        const joined = questions.map((q) => q.question_text).join(" ");
+        // eslint-disable-next-line no-control-regex
+        if (!/[^\u0000-\u024F]/.test(joined)) {
+          console.error("Language mismatch: expected", code, "got Latin script only");
+          return { status: 200, questions: [] as any[] };
+        }
+      }
+
+      return { status: response.status, questions };
+    };
+
+    let usedLanguage = langCode;
+    let languageFallback = false;
+    let result = await attempt(langCode);
+
+    // Rate limits and exhausted credits are transient/billing issues, not a language
+    // problem — surface those instead of silently switching language.
+    if (result.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limited, please try again later." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (result.status === 402) {
+      return new Response(JSON.stringify({ error: "Credits exhausted." }), {
+        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const aiData = await response.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let questionsArr: any[] = [];
+    if (!result.questions.length && langCode !== "en") {
+      console.warn("Falling back to English for interview", interviewId, "requested", langCode);
+      const english = await attempt("en");
+      if (english.questions.length) {
+        result = english;
+        usedLanguage = "en";
+        languageFallback = true;
+      }
+    }
 
-    if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      questionsArr = parsed.questions || [];
+    if (!result.questions.length) {
+      throw new Error("AI could not generate questions");
     }
 
     // Save questions to DB
     const savedQuestions = [];
-    for (let i = 0; i < questionsArr.length; i++) {
-      const q = questionsArr[i];
+    for (let i = 0; i < result.questions.length; i++) {
+      const q = result.questions[i];
       const { data } = await supabase.from("interview_questions").insert({
         interview_id: interviewId,
         question_text: q.question_text,
@@ -157,9 +201,20 @@ Respond with a JSON array of objects, each with: question_text, question_type (t
       if (data) savedQuestions.push(data);
     }
 
-    return new Response(JSON.stringify({ questions: savedQuestions }), {
+    if (languageFallback && interviewId) {
+      await supabase.from("interviews").update({ interview_language: "en" }).eq("id", interviewId);
+    }
+
+    return new Response(JSON.stringify({
+      questions: savedQuestions,
+      language: usedLanguage,
+      languageFallback,
+      requestedLanguage: langCode,
+      requestedLanguageName: langName,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e) {
     console.error("generate-questions error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
