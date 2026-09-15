@@ -410,8 +410,17 @@ export default function InterviewFlow() {
 
       if (error) throw error;
       const qs = data?.questions || [];
+      if (!qs.length) throw new Error("No questions returned");
+      if (data?.languageFallback) {
+        setLanguage("en");
+        toast({
+          title: "Continuing in English",
+          description: `We couldn't prepare the questions in ${getLanguage(started.language || language).label} right now, so the interview will continue in English. You can still answer in your own words.`,
+        });
+      }
       setQuestions(qs);
       setPhase("interview");
+
     } catch (err) {
       console.error("Failed to generate questions:", err);
       // Fallback: generate basic questions
